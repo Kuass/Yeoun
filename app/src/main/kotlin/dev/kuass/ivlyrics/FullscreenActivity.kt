@@ -287,9 +287,9 @@ function now(){return (player&&player.getCurrentTime)?player.getCurrentTime():-1
                 body.text = getString(R.string.research_loading)
                 val lyrics = snap.lyrics?.lines?.map { it.text } ?: emptyList()
                 val album = controller?.metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM) ?: ""
-                io.execute {
+                Research.executor.execute {
                     val text = research.generate(cfg, "$key|${prefs.targetLang}", snap.title, snap.artist, album, lyrics, Lang.target(prefs.targetLang))
-                    main.post { if (sheet.isShowing) body.text = text ?: getString(R.string.research_failed) }
+                    main.post { if (sheet.isShowing && !isDestroyed) body.text = text ?: getString(R.string.research_failed) }
                 }
             }
         }

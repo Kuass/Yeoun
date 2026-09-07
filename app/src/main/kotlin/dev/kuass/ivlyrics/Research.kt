@@ -7,7 +7,12 @@ import java.security.MessageDigest
 
 /** Short editorial write-up about the current song, generated once per track and cached on disk. */
 class Research(ctx: Context) {
-    private companion object { const val TAG = "Research"; const val MAX_LYRIC_CHARS = 2500 }
+    companion object {
+        private const val TAG = "Research"
+        private const val MAX_LYRIC_CHARS = 2500
+        /** Process-wide so closing the screen does not cancel a write-up that is about to be cached. */
+        val executor: java.util.concurrent.ExecutorService = java.util.concurrent.Executors.newSingleThreadExecutor()
+    }
     private val dir = File(ctx.cacheDir, "research").apply { mkdirs() }
 
     fun cached(key: String): String? = file(key).takeIf { it.exists() }?.readText()
