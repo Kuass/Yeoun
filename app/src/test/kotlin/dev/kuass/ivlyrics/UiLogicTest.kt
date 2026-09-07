@@ -29,6 +29,15 @@ class UiLogicTest {
     }
 
     @Test
+    fun `LrcWriter emits only timed lines and round-trips through the parser`() {
+        val lrc = LrcWriter.write(listOf("a", "b", "c"), listOf(1500L, null, 61_230L))
+        assertEquals("[00:01.50]a\n[01:01.23]c", lrc)
+        assertEquals(listOf(1500L to "a", 61_230L to "c"), Lrc.parse(lrc).map { it.timeMs to it.text })
+        assertEquals("", LrcWriter.write(listOf("a"), listOf(null)))
+        assertEquals("00:00.00", LrcWriter.stamp(-500))
+    }
+
+    @Test
     fun `provider preset resolves both ways`() {
         assertEquals("Groq", Providers.nameFor("https://api.groq.com/openai/v1/"))
         assertEquals(Providers.CUSTOM, Providers.nameFor("https://example.com/v1"))

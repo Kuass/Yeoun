@@ -266,6 +266,7 @@ class MainActivity : AppCompatActivity() {
             if (id != null || it.isNullOrBlank()) { trackPrefs.set(key, trackPrefs.get(key).copy(videoId = id)); prefs.bumpTrackPrefs() }
         }
         findViewById<MaterialButton>(R.id.btnFullscreen).setOnClickListener { startActivity(Intent(this, FullscreenActivity::class.java)) }
+        findViewById<MaterialButton>(R.id.btnSync).setOnClickListener { startActivity(Intent(this, SyncCreatorActivity::class.java)) }
         val peek = findViewById<MaterialSwitch>(R.id.switchPeek)
         peek.isChecked = false
         peek.setOnCheckedChangeListener { _, on -> prefs.putBoolean(Prefs.UI_OPEN, !on) }

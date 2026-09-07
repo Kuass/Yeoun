@@ -133,6 +133,10 @@
                 </com.google.android.material.textfield.TextInputLayout>
                 <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchPeek" style="@style/Switch"
                     android:text="@string/peek_overlay" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnSync"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="@string/sync_creator" app:icon="@drawable/ic_edit" />
                 <com.google.android.material.button.MaterialButton android:id="@+id/btnFullscreen"
                     style="@style/Widget.Material3.Button.TonalButton"
                     android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp"

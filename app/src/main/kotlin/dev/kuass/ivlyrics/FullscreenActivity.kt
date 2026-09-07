@@ -70,6 +70,7 @@ class FullscreenActivity : AppCompatActivity() {
     private var video: WebView? = null
     private var videoId: String? = null
     private var videoReady = false
+    private var videoActive = false
     private var videoKey: Triple<String, String, Long>? = null
     private val research by lazy { Research(this) }
     private val trackPrefs by lazy { TrackPrefs(this) }
@@ -109,6 +110,7 @@ class FullscreenActivity : AppCompatActivity() {
             insets
         }
         findViewById<MaterialButton>(R.id.fsInfo).setOnClickListener { showResearch(); scheduleHide() }
+        findViewById<MaterialButton>(R.id.fsSync).setOnClickListener { startActivity(android.content.Intent(this, SyncCreatorActivity::class.java)) }
         setUpVideo()
         findViewById<View>(R.id.fsRoot).setOnClickListener { setControlsVisible(!findViewById<View>(R.id.fsHeader).isShown) }
         findViewById<MaterialButton>(R.id.fsPrev).setOnClickListener { controller?.transportControls?.skipToPrevious(); scheduleHide() }
@@ -143,6 +145,8 @@ class FullscreenActivity : AppCompatActivity() {
         val manager = getSystemService(MediaSessionManager::class.java)
         val self = ComponentName(this, SpotifyListener::class.java)
         runCatching { manager.addOnActiveSessionsChangedListener(sessionsChanged, self, main); attach(manager.getActiveSessions(self)) }
+        videoActive = true
+        video?.onResume()
         main.post(tick)
         main.post(videoSync)
         setControlsVisible(true)
@@ -156,7 +160,9 @@ class FullscreenActivity : AppCompatActivity() {
 
     override fun onPause() {
         main.removeCallbacks(tick); main.removeCallbacks(hideControls); main.removeCallbacks(videoSync)
+        videoActive = false
         video?.evaluateJavascript("pause()", null)
+        video?.onPause()
         LyricsState.removeListener(stateListener)
         runCatching { getSystemService(MediaSessionManager::class.java).removeOnActiveSessionsChangedListener(sessionsChanged) }
         controller?.unregisterCallback(callback); controller = null
@@ -207,7 +213,7 @@ class FullscreenActivity : AppCompatActivity() {
         w.setBackgroundColor(0)
         w.webChromeClient = WebChromeClient()
         w.addJavascriptInterface(object {
-            @JavascriptInterface fun ready() { main.post { videoReady = true; w.visibility = View.VISIBLE; background.visibility = View.INVISIBLE; syncVideo(force = true) } }
+            @JavascriptInterface fun ready() { main.post { if (isDestroyed || video !== w) return@post; videoReady = true; w.visibility = View.VISIBLE; background.visibility = View.INVISIBLE; syncVideo(force = true) } }
         }, "Android")
         // A 16:9 player scaled up to cover a portrait screen; cropping the sides is intended.
         val m = resources.displayMetrics
@@ -256,12 +262,13 @@ function now(){return (player&&player.getCurrentTime)?player.getCurrentTime():-1
     /** Keeps the muted video within [VIDEO_DRIFT_SEC] of the song position and mirrors play/pause. */
     private fun syncVideo(force: Boolean = false) {
         val w = video ?: return
-        if (!videoReady || videoId == null) return
+        if (!videoActive || !videoReady || videoId == null) return
         val playing = state?.state == PlaybackState.STATE_PLAYING
         w.evaluateJavascript(if (playing) "play()" else "pause()", null)
         val target = positionMs() / 1000.0
         if (force) { w.evaluateJavascript("seek($target)", null); return }
         w.evaluateJavascript("now()") { raw ->
+            if (isDestroyed || !videoActive || video !== w) return@evaluateJavascript // the WebView may be gone by the time JS answers
             val current = raw?.toDoubleOrNull() ?: return@evaluateJavascript
             if (current >= 0 && kotlin.math.abs(current - target) > VIDEO_DRIFT_SEC) w.evaluateJavascript("seek(${positionMs() / 1000.0})", null)
         }
@@ -279,16 +286,20 @@ function now(){return (player&&player.getCurrentTime)?player.getCurrentTime():-1
         sheet.setContentView(view)
         sheet.show()
         val cfg = prefs.aiConfig
-        val cached = research.cached("$key|${prefs.targetLang}")
+        val target = Lang.target(prefs.targetLang)
+        val cacheKey = TrackPrefs.key(key.first, key.second, key.third) + "|" + target.code
+        val cached = research.cached(cacheKey)
         when {
             cached != null -> body.text = cached
             cfg == null -> body.text = getString(R.string.research_unavailable)
             else -> {
                 body.text = getString(R.string.research_loading)
-                val lyrics = snap.lyrics?.lines?.map { it.text } ?: emptyList()
                 val album = controller?.metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM) ?: ""
                 Research.executor.execute {
-                    val text = research.generate(cfg, "$key|${prefs.targetLang}", snap.title, snap.artist, album, lyrics, Lang.target(prefs.targetLang))
+                    // Lyrics may still be loading when the sheet opens; use whatever the service has by now.
+                    val latest = LyricsState.snapshot.takeIf { it.key == key }?.lyrics ?: snap.lyrics
+                    val lyrics = latest?.lines?.map { it.text } ?: emptyList()
+                    val text = research.generate(cfg, cacheKey, snap.title, snap.artist, album, lyrics, target)
                     main.post { if (sheet.isShowing && !isDestroyed) body.text = text ?: getString(R.string.research_failed) }
                 }
             }

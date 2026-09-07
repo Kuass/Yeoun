@@ -51,6 +51,19 @@
     <string name="research_loading">곡 정보를 정리하는 중…</string>
     <string name="research_unavailable">AI 설정이 없어 곡 정보를 만들 수 없습니다.</string>
     <string name="research_failed">곡 정보를 가져오지 못했습니다.</string>
+    <string name="sync_creator">싱크 만들기</string>
+    <string name="sync_help">노래를 들으며 각 줄이 시작될 때 "이 줄 시작"을 누르세요. 줄을 탭하면 그 줄부터 다시 찍습니다. 저장하면 이 곡에서는 이 타이밍을 가장 먼저 씁니다.</string>
+    <string name="sync_paste_hint">가사가 없습니다. 여기에 가사를 한 줄씩 붙여 넣으세요.</string>
+    <string name="sync_use_paste">이 가사로 시작</string>
+    <string name="sync_stamp">이 줄 시작</string>
+    <string name="sync_undo">한 줄 되돌리기</string>
+    <string name="sync_back">3초 뒤로</string>
+    <string name="sync_save">저장</string>
+    <string name="sync_delete">저장된 싱크 삭제</string>
+    <string name="sync_saved">이 곡의 싱크를 저장했습니다</string>
+    <string name="sync_deleted">저장된 싱크를 지웠습니다</string>
+    <string name="sync_nothing">찍은 줄이 없습니다</string>
+    <string name="sync_progress">%1$d / %2$d줄</string>
     <string name="section_lyrics">가사</string>
     <string name="source_first">먼저 찾을 곳</string>
     <string name="source_lrclib">LRCLIB</string>
@@ -100,4 +113,5 @@
     <string name="tab_sources">가사 소스</string>
     <string name="tab_app">앱 설정</string>
     <string name="playback_position">재생 위치</string>
+    <string name="sync_order_error">이전 줄과 같거나 더 늦은 시점에 표시해 주세요.</string>
 </resources>

@@ -51,6 +51,19 @@
     <string name="research_loading">Putting the story together…</string>
     <string name="research_unavailable">Set up an AI provider to generate song notes.</string>
     <string name="research_failed">Could not fetch song notes.</string>
+    <string name="sync_creator">Make sync</string>
+    <string name="sync_help">While the song plays, tap "Line starts" as each line begins. Tap a line to restart from it. Saved timing is used first for this track.</string>
+    <string name="sync_paste_hint">No lyrics found. Paste the lyrics here, one line each.</string>
+    <string name="sync_use_paste">Use these lyrics</string>
+    <string name="sync_stamp">Line starts</string>
+    <string name="sync_undo">Undo one line</string>
+    <string name="sync_back">Back 3 seconds</string>
+    <string name="sync_save">Save</string>
+    <string name="sync_delete">Delete saved sync</string>
+    <string name="sync_saved">Saved the sync for this track</string>
+    <string name="sync_deleted">Removed the saved sync</string>
+    <string name="sync_nothing">No lines were timed</string>
+    <string name="sync_progress">%1$d / %2$d lines</string>
     <string name="section_lyrics">Lyrics</string>
     <string name="source_first">Try first</string>
     <string name="source_lrclib">LRCLIB</string>
@@ -122,4 +135,5 @@
     <string name="tab_sources">Sources</string>
     <string name="tab_app">Settings</string>
     <string name="playback_position">Playback position</string>
+    <string name="sync_order_error">Choose a time at or after the previous line.</string>
 </resources>
