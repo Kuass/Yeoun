@@ -28,6 +28,10 @@ Yeoun is an Android companion for Spotify that puts synchronized lyrics above yo
 
 Lyrics work without an AI API key. Translation and pronunciation require your own compatible API endpoint, key, and model.
 
+## Download
+
+Download the signed APK from [GitHub Releases](https://github.com/Kuass/Yeoun/releases/latest). The release page includes matching source, checksums, and the signing certificate fingerprint. Development builds use a different signing key; read the release notes before replacing an existing debug installation.
+
 ## Get started
 
 ### Requirements

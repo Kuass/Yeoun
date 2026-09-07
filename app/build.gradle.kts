@@ -3,6 +3,13 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+val releaseVariables = listOf("YEOUN_KEYSTORE_PATH", "YEOUN_KEYSTORE_PASSWORD", "YEOUN_KEY_ALIAS", "YEOUN_KEY_PASSWORD")
+val releaseValues = releaseVariables.associateWith { providers.environmentVariable(it).orNull }
+val hasReleaseSigning = releaseValues.values.all { !it.isNullOrBlank() }
+if (providers.gradleProperty("requireReleaseSigning").orNull == "true") {
+    check(hasReleaseSigning) { "Release signing requires all YEOUN_KEYSTORE_* and YEOUN_KEY_* environment variables." }
+}
+
 android {
     namespace = "dev.kuass.ivlyrics"
     compileSdk = 36
@@ -13,6 +20,23 @@ android {
         targetSdk = 36
         versionCode = 2
         versionName = "0.3.0"
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = file(releaseValues.getValue("YEOUN_KEYSTORE_PATH")!!)
+                storePassword = releaseValues.getValue("YEOUN_KEYSTORE_PASSWORD")
+                keyAlias = releaseValues.getValue("YEOUN_KEY_ALIAS")
+                keyPassword = releaseValues.getValue("YEOUN_KEY_PASSWORD")
+            }
+        }
+    }
+    buildTypes {
+        getByName("release") {
+            isDebuggable = false
+            if (hasReleaseSigning) signingConfig = signingConfigs.getByName("release")
+        }
     }
 
     compileOptions {

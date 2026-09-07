@@ -25,7 +25,22 @@ The GitHub workflow runs the same check on pushes and pull requests. Workflow de
 
 Commit the verified tree, then publish that commit to the intended remote. A repository URL, CI run link, or download badge must be added only after the corresponding remote resource exists. The source can be published independently of an APK release.
 
-## Binary releases
+## Automated signed releases
+
+The [Release workflow](../.github/workflows/release.yml) runs when a stable `vX.Y.Z` tag is pushed. It runs the Quality workflow first, verifies that the tag matches the checked-out commit on `main`, then builds and tests the release variant. `scripts/package-release.py` rejects unsigned, debug-signed, debuggable, wrong-package, and wrong-version APKs. Assets are uploaded to a draft release before it is published.
+
+Required GitHub Actions secrets: `YEOUN_KEYSTORE_BASE64`, `YEOUN_KEYSTORE_PASSWORD`, `YEOUN_KEY_ALIAS`, and `YEOUN_KEY_PASSWORD`. Keep the original release key and credentials backed up securely outside Git; changing the key breaks in-place updates for users.
+
+For each release, update `versionName` and increase `versionCode` in `app/build.gradle.kts`, add bilingual notes in `docs/releases/vX.Y.Z.md`, pass Quality on `main`, then push the matching tag. Published release assets should not be overwritten. Manual dispatch is also supported: select the existing tag as the workflow ref and provide the same tag as input.
+
+For a local signed build, export `YEOUN_KEYSTORE_PATH`, `YEOUN_KEYSTORE_PASSWORD`, `YEOUN_KEY_ALIAS`, and `YEOUN_KEY_PASSWORD`, then run:
+
+```bash
+./gradlew --no-configuration-cache -PrequireReleaseSigning=true testReleaseUnitTest lintRelease assembleRelease
+python3 scripts/package-release.py v0.3.0
+```
+
+## Binary release verification
 
 The verification artifact is explicitly a debug build. Keep a release signing key outside the repository, configure Android release signing, and verify the signed build before distributing it to users. Ship the matching source and build instructions alongside binary releases, retaining the license and third-party notices. Keep version numbers and release tags aligned with the published source.
 
