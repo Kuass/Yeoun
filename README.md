@@ -19,6 +19,7 @@ Yeoun is an Android companion for Spotify that puts synchronized lyrics above yo
 - **Follow the music.** Display synchronized lyrics in a movable overlay. Shared lines move into place instead of disappearing between transitions.
 - **Open fullscreen.** Tap the overlay or use **Sources → Now playing → Open fullscreen** for a larger lyrics view, album-art background, and playback controls.
 - **Optional video and song notes.** Use a per-track YouTube URL or your own YouTube Data API key for a muted video background. Generate cached song notes with your configured AI provider; these are model-generated explanations, not independently verified research.
+- **Time your own lyrics.** Open **Make sync** from Sources or fullscreen, use the existing lyrics or paste your own, and tap each line start during playback. Save timed lines as local LRC; untimed lines are omitted. Deleting local timing restores online lookup.
 - **Sing along.** Highlight words or characters when the selected source provides timing data.
 - **Understand another language.** Add AI translations and pronunciation guides. Choose a target language, translation style, extra instructions, and native-script, romanized, or IPA pronunciation.
 - **Make the window yours.** Adjust text size, surrounding lines, background opacity, animation, and the delay before hiding paused lyrics. Check display changes in the live preview.
@@ -78,7 +79,7 @@ Yeoun reads the track title, artist, album, duration, and playback position from
 | LyricsPlus | Another lyrics source, including word timing when available |
 | ivLyrics community | Community-authored character timing matched to its original lyrics |
 
-Enabled regular sources run in the chosen order. With karaoke enabled, Yeoun continues looking for word timing when a result only has line timing. Usable community timing takes priority when enabled. For Korean targets, romanized Korean results can yield to original-script lyrics from another source.
+Enabled regular sources run in the chosen order. With karaoke enabled, Yeoun continues looking for word timing when a result only has line timing. Locally saved lyrics take priority over every online source. Otherwise, usable community timing takes priority when enabled. For Korean targets, romanized Korean results can yield to original-script lyrics from another source.
 
 Plain lyrics are distributed across the track duration and marked with `≈`; this is approximate timing. A positive global offset displays lyrics earlier. LRC `[offset:]` metadata is also supported.
 
@@ -91,7 +92,7 @@ Plain lyrics are distributed across the track duration and marked with `≈`; th
 | Track metadata | Sent to enabled lyrics/search services to find the matching track. Community lookup can use a Spotify track ID or an ISRC resolved through Deezer. |
 | AI requests | Lyrics, translation preferences, song context, and requested song notes are sent to the endpoint you configure. Your key authenticates those requests. |
 | Video background | With automatic matching configured, track title and artist are sent to YouTube Data API using your key. The embedded player connects to YouTube. A manually selected video does not need a search API key. |
-| Local storage | Settings and API keys use app-private SharedPreferences; AI results, generated song notes, and community data use app cache storage. Keys do not have a separate encryption layer. |
+| Local storage | Settings, locally timed lyrics, and API keys use app-private SharedPreferences; AI results, generated song notes, and community data use app cache storage. Keys do not have a separate encryption layer. |
 
 The current community integration sends the Spotify web-player `Origin` header to the ivLyrics timing endpoint. You can disable community data in **Sources**. API availability and responses depend on the external services.
 
@@ -101,7 +102,7 @@ Use **Clear cached results** in Translate to remove cached AI results. This does
 
 - Spotify on Android is the supported playback source.
 - Lyrics coverage, matching, and word timing depend on the providers. AI output can be inaccurate.
-- A timing editor is not included.
+- The timing editor records line starts on this device. It does not author word/character timing or upload community sync data.
 - In **Sources → Now playing**, set an offset and translation language for the current track. The track offset is added to the global offset. Enable the temporary overlay preview there to adjust while watching the actual window.
 - Device verification has covered the settings UI and sample lyric animation on one connected phone. Unit tests do not verify live provider availability or every Android device.
 
