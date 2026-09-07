@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name">Yeoun</string>
     <string name="status_ready">Play a song in Spotify and the lyrics window appears</string>
-    <string name="status_blocked">%1$d more permission needed</string>
+    <string name="status_blocked">Permissions needed: %1$d</string>
     <string name="preview_caption">Lyrics display changes appear here immediately</string>
 
     <string name="section_permissions">Connection</string>

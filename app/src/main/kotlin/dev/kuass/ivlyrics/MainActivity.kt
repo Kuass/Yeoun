@@ -64,6 +64,10 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = false
+            isAppearanceLightNavigationBars = false
+        }
         prefs = Prefs(this)
         setContentView(R.layout.activity_main)
         val scroll = findViewById<NestedScrollView>(R.id.scroll)
