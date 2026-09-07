@@ -1,0 +1,7 @@
+* text=auto
+*.png binary
+*.ttf binary
+*.jar binary
+
+# Preserve verbatim upstream font license text, including its original spacing.
+app/src/main/assets/licenses/*-OFL.txt whitespace=-blank-at-eol

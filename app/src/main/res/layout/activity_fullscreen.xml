@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/fsRoot"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/ink"
+    android:clickable="true"
+    android:focusable="true">
+
+    <WebView
+        android:id="@+id/fsVideo"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:visibility="gone"
+        android:importantForAccessibility="no" />
+    <ImageView
+        android:id="@+id/fsBackground"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="centerCrop"
+        android:alpha="0.55"
+        android:importantForAccessibility="no" />
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="@drawable/bg_scrim" />
+
+    <!-- Header: art, title, artist, clock -->
+    <LinearLayout
+        android:id="@+id/fsHeader"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingBottom="12dp">
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/fsArt"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:layout_marginEnd="14dp"
+            android:scaleType="centerCrop"
+            android:importantForAccessibility="no"
+            app:shapeAppearanceOverlay="@style/RoundedArt" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+            <TextView
+                android:id="@+id/fsTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="@font/pretendard"
+                android:maxLines="1"
+                android:textColor="@color/paper"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+            <TextView
+                android:id="@+id/fsArtist"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="@color/paper_dim"
+                android:textSize="14sp" />
+        </LinearLayout>
+        <TextView
+            android:id="@+id/fsClock"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:fontFamily="@font/gowun_batang"
+            android:textColor="@color/paper"
+            android:textSize="20sp" />
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/fsInfo"
+            style="@style/Widget.Material3.Button.IconButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/research"
+            app:icon="@drawable/ic_info"
+            app:iconTint="@color/paper" />
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/fsClose"
+            style="@style/Widget.Material3.Button.IconButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="@string/close"
+            app:icon="@drawable/ic_close"
+            app:iconTint="@color/paper" />
+    </LinearLayout>
+
+    <dev.kuass.ivlyrics.LyricsView
+        android:id="@+id/fsLyrics"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="12dp" />
+
+    <!-- Bottom: progress and transport -->
+    <LinearLayout
+        android:id="@+id/fsBottom"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="vertical">
+        <com.google.android.material.slider.Slider
+            android:id="@+id/fsSeek"
+            android:contentDescription="@string/playback_position"
+            style="@style/Slider"
+            android:valueFrom="0"
+            android:valueTo="1000"
+            android:stepSize="0"
+            app:thumbHeight="18dp"
+            app:trackHeight="6dp" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="-6dp"
+            android:orientation="horizontal"
+            android:paddingStart="6dp"
+            android:paddingEnd="6dp">
+            <TextView android:id="@+id/fsElapsed" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+                android:textColor="@color/paper_dim" android:textSize="12sp" />
+            <TextView android:id="@+id/fsRemaining" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:textColor="@color/paper_dim" android:textSize="12sp" />
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:paddingTop="4dp">
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/fsPrev"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:contentDescription="@string/previous"
+                app:icon="@drawable/ic_prev"
+                app:iconSize="32dp"
+                app:iconTint="@color/paper" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/fsPlayPause"
+                style="@style/Widget.Material3.Button.IconButton.Filled"
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:layout_marginStart="20dp"
+                android:layout_marginEnd="20dp"
+                android:contentDescription="@string/play"
+                app:backgroundTint="@color/amber"
+                app:icon="@drawable/ic_play"
+                app:iconSize="40dp"
+                app:iconTint="@color/amber_deep" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/fsNext"
+                style="@style/Widget.Material3.Button.IconButton"
+                android:layout_width="64dp"
+                android:layout_height="64dp"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:minWidth="0dp"
+                android:minHeight="0dp"
+                android:contentDescription="@string/next"
+                app:icon="@drawable/ic_next"
+                app:iconSize="32dp"
+                app:iconTint="@color/paper" />
+        </LinearLayout>
+    </LinearLayout>
+</FrameLayout>

@@ -1,0 +1,45 @@
+name: Quality
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - name: Set up Java toolchains
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: temurin
+          java-version: |
+            17
+            21
+      - name: Set up Gradle and validate wrapper
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+      - name: Install Android SDK platform
+        run: sdkmanager 'platforms;android-36' 'build-tools;35.0.0'
+      - name: Install pinned local secret scanner
+        run: python3 scripts/install-gitleaks.py
+      - name: Verify publication snapshot
+        run: python3 scripts/check-publication.py --build
+      - name: Upload verification results
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: yeoun-verification
+          path: build/publication/
+          if-no-files-found: warn
+          retention-days: 7

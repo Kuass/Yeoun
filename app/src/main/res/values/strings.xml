@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Yeoun</string>
+    <string name="status_ready">Play a song in Spotify and the lyrics window appears</string>
+    <string name="status_blocked">%1$d more permission needed</string>
+    <string name="preview_caption">Lyrics display changes appear here immediately</string>
+
+    <string name="section_permissions">Connection</string>
+    <string name="perm_notification">Notification access</string>
+    <string name="perm_notification_desc">Needed to read the current track and position. Notification contents are not used.</string>
+    <string name="perm_overlay">Display over other apps</string>
+    <string name="perm_overlay_desc">Needed to draw the lyrics window above Spotify.</string>
+    <string name="granted">Allowed</string>
+    <string name="denied">Open settings</string>
+
+    <string name="section_display">Lyrics window</string>
+    <string name="font_size">Text size</string>
+    <string name="prev_lines">Previous lines</string>
+    <string name="next_lines">Upcoming lines</string>
+    <string name="background">Background</string>
+    <string name="background_off">None</string>
+    <string name="animate">Animate line changes</string>
+    <string name="karaoke">Karaoke highlight (when word timing exists)</string>
+    <string name="hide_on_pause">Hide after pause</string>
+    <string name="hide_never">Never</string>
+    <string name="seconds_format">after %1$ds</string>
+    <string name="sp_format">%1$dsp</string>
+    <string name="lines_format">%1$d</string>
+    <string name="dismiss_hint">Drag the window up or down to move it. Swipe it sideways to close it until the next track. It stays hidden while this app is open.</string>
+
+    <string name="section_now_playing">Now playing</string>
+    <string name="now_playing_none">Nothing is playing in Spotify</string>
+    <string name="track_offset">Sync offset for this track</string>
+    <string name="track_lang">Translation language for this track</string>
+    <string name="track_lang_default">Use default</string>
+    <string name="peek_overlay">Show the lyrics window while adjusting</string>
+    <string name="now_playing_desc">These values apply to this track only and add to the global sync offset.</string>
+    <string name="open_fullscreen">Open fullscreen</string>
+    <string name="play">Play</string>
+    <string name="pause">Pause</string>
+    <string name="previous">Previous track</string>
+    <string name="next">Next track</string>
+    <string name="close">Close</string>
+    <string name="fullscreen_hint">Tapping the lyrics window also opens fullscreen.</string>
+    <string name="section_fullscreen">Fullscreen</string>
+    <string name="video_bg">Music video background</string>
+    <string name="video_bg_desc">Plays the matching YouTube video muted behind the lyrics, kept in sync with playback. Falls back to album art.</string>
+    <string name="yt_api_key">YouTube Data API key (for automatic search)</string>
+    <string name="track_video">YouTube video URL for this track</string>
+    <string name="research">About this song</string>
+    <string name="research_loading">Putting the story together…</string>
+    <string name="research_unavailable">Set up an AI provider to generate song notes.</string>
+    <string name="research_failed">Could not fetch song notes.</string>
+    <string name="section_lyrics">Lyrics</string>
+    <string name="source_first">Try first</string>
+    <string name="source_lrclib">LRCLIB</string>
+    <string name="source_lyrically">Lyrically (Apple Music catalog)</string>
+    <string name="source_lyricsplus">LyricsPlus (Apple Music, Musixmatch and more)</string>
+    <string name="source_community">ivLyrics community sync data</string>
+    <string name="source_community_desc">Hand-timed karaoke data shared by ivLyrics users, matched by ISRC. Overrides the sources above when available.</string>
+    <string name="sync_offset">Sync offset</string>
+    <string name="ms_format">%1$+d ms</string>
+    <string name="sync_offset_hint">Positive values show lines earlier. Applies to every track.</string>
+
+    <string name="section_ai">Translation and pronunciation</string>
+    <string name="pref_translate">Show translation</string>
+    <string name="pref_phonetic">Show pronunciation</string>
+    <string name="target_lang">Language</string>
+    <string name="style">Translation style</string>
+    <string name="style_natural">Natural</string>
+    <string name="style_literal">Literal</string>
+    <string name="style_adaptive">Flowing (uses nearby lines)</string>
+    <string name="instruction">Extra instructions for the translator</string>
+    <string name="notation">Pronunciation script</string>
+    <string name="notation_script">Target language script</string>
+    <string name="notation_latin">Latin romanization</string>
+    <string name="notation_ipa">IPA</string>
+    <string name="ai_desc">Uses an OpenAI-compatible chat API. Songs already in the chosen language are skipped, and results are cached per track.</string>
+    <string name="provider">Service</string>
+    <string name="provider_custom">Custom</string>
+    <string name="base_url">Server address (…/v1)</string>
+    <string name="api_key">API key</string>
+    <string name="model">Model</string>
+    <string name="load_models">Load model list</string>
+    <string name="loading_models">Loading…</string>
+    <string name="models_loaded">Loaded %1$d models</string>
+    <string name="models_failed">Could not load models: %1$s</string>
+    <string name="clear_cache">Clear cached results</string>
+    <string name="cache_cleared">Cached translations cleared</string>
+
+    <string name="lyrics_loading">Searching for lyrics…</string>
+    <string name="lyrics_none">No lyrics found</string>
+
+    <!-- Original demonstration text written for Yeoun; not taken from a released song. -->
+    <string name="sample_prev2" translatable="false">The evening folds its silver wings</string>
+    <string name="sample_prev1" translatable="false">A quiet song stays by the window</string>
+    <string name="sample_current" translatable="false">We leave a little light between us</string>
+    <string name="sample_next1" translatable="false">And let the last note take its time</string>
+    <string name="sample_next2" translatable="false">The room remembers every whisper</string>
+    <string name="sample_next3" translatable="false">Until the morning finds our song</string>
+    <string name="sample_prev2_ph" translatable="false">디 이브닝 폴즈 잇츠 실버 윙즈</string>
+    <string name="sample_prev1_ph" translatable="false">어 콰이엇 송 스테이즈 바이 더 윈도우</string>
+    <string name="sample_phonetic" translatable="false">위 리브 어 리틀 라이트 비트윈 어스</string>
+    <string name="sample_next1_ph" translatable="false">앤 렛 더 라스트 노트 테이크 잇츠 타임</string>
+    <string name="sample_next2_ph" translatable="false">더 룸 리멤버즈 에브리 위스퍼</string>
+    <string name="sample_next3_ph" translatable="false">언틸 더 모닝 파인즈 아워 송</string>
+    <string name="sample_prev2_tr" translatable="false">저녁이 은빛 날개를 접어요</string>
+    <string name="sample_prev1_tr" translatable="false">고요한 노래가 창가에 머물러요</string>
+    <string name="sample_translation" translatable="false">우리 사이에 작은 빛을 남겨요</string>
+    <string name="sample_next1_tr" translatable="false">마지막 음이 천천히 흐르게 해요</string>
+    <string name="sample_next2_tr" translatable="false">방 안에는 속삭임이 남아 있어요</string>
+    <string name="sample_next3_tr" translatable="false">아침이 우리 노래를 찾아올 때까지</string>
+    <string name="section_app">App</string>
+    <string name="app_language">App language</string>
+    <string name="lang_system">Follow system</string>
+    <string name="lang_ko" translatable="false">한국어</string>
+    <string name="lang_en" translatable="false">English</string>
+    <string name="brand_caption">Where music fades, lyrics linger.</string>
+    <string name="preview_title">LYRICS PREVIEW</string>
+    <string name="tab_display">Display</string>
+    <string name="tab_translation">Translate</string>
+    <string name="tab_sources">Sources</string>
+    <string name="tab_app">Settings</string>
+    <string name="playback_position">Playback position</string>
+</resources>

@@ -1,0 +1,350 @@
+package dev.kuass.ivlyrics
+
+import android.content.ComponentName
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
+import android.graphics.RenderEffect
+import android.graphics.Shader
+import android.media.MediaMetadata
+import android.media.session.MediaController
+import android.media.session.MediaSessionManager
+import android.media.session.PlaybackState
+import android.os.Build
+import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
+import android.view.View
+import android.view.WindowManager
+import android.webkit.JavascriptInterface
+import android.webkit.WebChromeClient
+import android.webkit.WebView
+import com.google.android.material.bottomsheet.BottomSheetDialog
+import android.widget.ImageView
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import androidx.core.view.updatePadding
+import com.google.android.material.button.MaterialButton
+import com.google.android.material.slider.Slider
+import java.net.URL
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import java.util.concurrent.Executors
+
+/**
+ * Immersive lyrics screen: blurred album art behind a large [LyricsView], with transport controls.
+ * Reads the media session directly for position and controls; lyrics come from [LyricsState].
+ */
+class FullscreenActivity : AppCompatActivity() {
+    private companion object {
+        const val TICK_MS = 100L
+        const val CONTROLS_HIDE_MS = 5000L
+        const val FONT_SCALE = 1.7f
+        const val ROW_GAP_DP = 10
+        const val VIDEO_SYNC_MS = 2000L
+        const val VIDEO_DRIFT_SEC = 1.5
+        const val SPOTIFY = "com.spotify.music"
+    }
+
+    private lateinit var prefs: Prefs
+    private lateinit var lyricsView: LyricsView
+    private lateinit var background: ImageView
+    private lateinit var art: ImageView
+    private lateinit var seek: Slider
+    private lateinit var playPause: MaterialButton
+    private val main = Handler(Looper.getMainLooper())
+    private val io = Executors.newSingleThreadExecutor()
+    private var controller: MediaController? = null
+    private var state: PlaybackState? = null
+    private var durationMs = 0L
+    private var seeking = false
+    private var shownIndex = Int.MIN_VALUE
+    private var shownKey: Triple<String, String, Long>? = null
+    private var artUri: String? = null
+    private var snapshot = LyricsState.snapshot
+    private var video: WebView? = null
+    private var videoId: String? = null
+    private var videoReady = false
+    private var videoKey: Triple<String, String, Long>? = null
+    private val research by lazy { Research(this) }
+    private val trackPrefs by lazy { TrackPrefs(this) }
+    private val clockFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
+
+    private val stateListener: (LyricsState.Snapshot) -> Unit = { snapshot = it; shownIndex = Int.MIN_VALUE; render() }
+    private val sessionsChanged = MediaSessionManager.OnActiveSessionsChangedListener { attach(it) }
+    private val callback = object : MediaController.Callback() {
+        override fun onMetadataChanged(metadata: MediaMetadata?) = showMetadata(metadata)
+        override fun onPlaybackStateChanged(s: PlaybackState?) { state = s; updatePlayPause() }
+    }
+    private val tick = object : Runnable {
+        override fun run() { render(); main.postDelayed(this, TICK_MS) }
+    }
+    private val hideControls = Runnable { setControlsVisible(false) }
+    private val videoSync = object : Runnable {
+        override fun run() { syncVideo(); main.postDelayed(this, VIDEO_SYNC_MS) }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        prefs = Prefs(this)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        setContentView(R.layout.activity_fullscreen)
+        lyricsView = findViewById(R.id.fsLyrics)
+        background = findViewById(R.id.fsBackground)
+        art = findViewById(R.id.fsArt)
+        seek = findViewById(R.id.fsSeek)
+        playPause = findViewById(R.id.fsPlayPause)
+        val chrome = listOf<View>(findViewById(R.id.fsHeader), findViewById(R.id.fsBottom))
+        ViewCompat.setOnApplyWindowInsetsListener(findViewById(R.id.fsRoot)) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.displayCutout())
+            val side = maxOf(bars.left, bars.right) + dp(20) // symmetric, so centered rows stay centered next to a cutout
+            chrome[0].updatePadding(top = bars.top + dp(12), left = side, right = side)
+            chrome[1].updatePadding(bottom = bars.bottom + dp(12), left = side, right = side)
+            insets
+        }
+        findViewById<MaterialButton>(R.id.fsInfo).setOnClickListener { showResearch(); scheduleHide() }
+        setUpVideo()
+        findViewById<View>(R.id.fsRoot).setOnClickListener { setControlsVisible(!findViewById<View>(R.id.fsHeader).isShown) }
+        findViewById<MaterialButton>(R.id.fsPrev).setOnClickListener { controller?.transportControls?.skipToPrevious(); scheduleHide() }
+        findViewById<MaterialButton>(R.id.fsNext).setOnClickListener { controller?.transportControls?.skipToNext(); scheduleHide() }
+        playPause.setOnClickListener {
+            if (state?.state == PlaybackState.STATE_PLAYING) controller?.transportControls?.pause() else controller?.transportControls?.play()
+            scheduleHide()
+        }
+        findViewById<MaterialButton>(R.id.fsClose).setOnClickListener { finish() }
+        seek.addOnSliderTouchListener(object : Slider.OnSliderTouchListener {
+            override fun onStartTrackingTouch(slider: Slider) { seeking = true; main.removeCallbacks(hideControls) }
+            override fun onStopTrackingTouch(slider: Slider) {
+                seeking = false
+                controller?.transportControls?.seekTo((slider.value / 1000f * durationMs).toLong())
+                scheduleHide()
+            }
+        })
+        seek.addOnChangeListener { _, value, fromUser -> if (fromUser) showTime((value / 1000f * durationMs).toLong()) }
+        val style = prefs.lyricsStyle
+        lyricsView.setStyle(style.copy(fontSp = (style.fontSp * FONT_SCALE).toInt().coerceIn(20, 48), bgPercent = 0,
+            prevLines = maxOf(1, style.prevLines), nextLines = maxOf(2, style.nextLines), rowGapDp = ROW_GAP_DP))
+    }
+
+    override fun onResume() {
+        super.onResume()
+        prefs.putBoolean(Prefs.UI_OPEN, true)
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            hide(WindowInsetsCompat.Type.systemBars())
+        }
+        LyricsState.addListener(stateListener)
+        val manager = getSystemService(MediaSessionManager::class.java)
+        val self = ComponentName(this, SpotifyListener::class.java)
+        runCatching { manager.addOnActiveSessionsChangedListener(sessionsChanged, self, main); attach(manager.getActiveSessions(self)) }
+        main.post(tick)
+        main.post(videoSync)
+        setControlsVisible(true)
+    }
+
+    override fun onDestroy() {
+        video?.destroy(); video = null
+        io.shutdownNow()
+        super.onDestroy()
+    }
+
+    override fun onPause() {
+        main.removeCallbacks(tick); main.removeCallbacks(hideControls); main.removeCallbacks(videoSync)
+        video?.evaluateJavascript("pause()", null)
+        LyricsState.removeListener(stateListener)
+        runCatching { getSystemService(MediaSessionManager::class.java).removeOnActiveSessionsChangedListener(sessionsChanged) }
+        controller?.unregisterCallback(callback); controller = null
+        prefs.putBoolean(Prefs.UI_OPEN, false)
+        super.onPause()
+    }
+
+    private fun attach(sessions: List<MediaController>?) {
+        val spotify = sessions?.firstOrNull { it.packageName == SPOTIFY }
+        if (spotify?.sessionToken == controller?.sessionToken) return
+        controller?.unregisterCallback(callback)
+        controller = spotify?.also { it.registerCallback(callback, main) }
+        state = spotify?.playbackState
+        showMetadata(spotify?.metadata)
+        updatePlayPause()
+    }
+
+    private fun showMetadata(md: MediaMetadata?) {
+        findViewById<TextView>(R.id.fsTitle).text = md?.getString(MediaMetadata.METADATA_KEY_TITLE) ?: ""
+        findViewById<TextView>(R.id.fsArtist).text = md?.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: ""
+        durationMs = md?.getLong(MediaMetadata.METADATA_KEY_DURATION) ?: 0L
+        resolveVideo(md)
+        val bitmap = md?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
+        val uri = md?.getString("com.spotify.music.extra.ART_HTTPS_URI") ?: md?.getString(MediaMetadata.METADATA_KEY_ALBUM_ART_URI)
+        when {
+            bitmap != null -> showArt(bitmap)
+            uri != null && uri != artUri -> { artUri = uri; io.execute { runCatching { URL(uri).openStream().use(BitmapFactory::decodeStream) }.getOrNull()?.let { main.post { if (artUri == uri) showArt(it) } } } }
+            uri == null -> { background.setImageDrawable(null); art.setImageDrawable(null) }
+        }
+    }
+
+    private fun showArt(bitmap: Bitmap) {
+        art.setImageBitmap(bitmap)
+        background.setImageBitmap(bitmap)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            background.setRenderEffect(RenderEffect.createBlurEffect(dp(28).toFloat(), dp(28).toFloat(), Shader.TileMode.CLAMP))
+        }
+    }
+
+    // ---- music video background -------------------------------------------------------------------
+
+    @android.annotation.SuppressLint("SetJavaScriptEnabled")
+    private fun setUpVideo() {
+        if (!prefs.videoBg) return
+        val w = findViewById<WebView>(R.id.fsVideo)
+        w.settings.javaScriptEnabled = true
+        w.settings.mediaPlaybackRequiresUserGesture = false
+        w.setBackgroundColor(0)
+        w.webChromeClient = WebChromeClient()
+        w.addJavascriptInterface(object {
+            @JavascriptInterface fun ready() { main.post { videoReady = true; w.visibility = View.VISIBLE; background.visibility = View.INVISIBLE; syncVideo(force = true) } }
+        }, "Android")
+        // A 16:9 player scaled up to cover a portrait screen; cropping the sides is intended.
+        val m = resources.displayMetrics
+        val scale = maxOf(1f, m.heightPixels / (m.widthPixels * 9f / 16f))
+        w.scaleX = scale; w.scaleY = scale
+        video = w
+    }
+
+    private fun resolveVideo(md: MediaMetadata?) {
+        val w = video ?: return
+        val title = md?.getString(MediaMetadata.METADATA_KEY_TITLE) ?: return
+        val artist = md.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: ""
+        val key = Triple(title, artist, (md.getLong(MediaMetadata.METADATA_KEY_DURATION)) / 1000)
+        if (key == videoKey) return
+        videoKey = key
+        videoReady = false
+        w.visibility = View.GONE; background.visibility = View.VISIBLE
+        val manual = trackPrefs.get(TrackPrefs.key(title, artist, key.third)).videoId
+        val apiKey = prefs.ytApiKey
+        io.execute {
+            val id = manual ?: VideoMatch.search(apiKey, title, artist)
+            main.post { if (videoKey == key) loadVideo(id) }
+        }
+    }
+
+    private fun loadVideo(id: String?) {
+        val w = video ?: return
+        videoId = id
+        if (id == null) { w.loadUrl("about:blank"); return }
+        val start = (positionMs() / 1000).coerceAtLeast(0)
+        val html = """<html><body style="margin:0;background:#000;overflow:hidden"><div id="p"></div>
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+var player;
+function onYouTubeIframeAPIReady(){player=new YT.Player('p',{width:'100%',height:'100%',videoId:'$id',
+ playerVars:{autoplay:1,controls:0,mute:1,playsinline:1,rel:0,iv_load_policy:3,disablekb:1,fs:0,start:$start,loop:1,playlist:'$id'},
+ events:{onReady:function(e){e.target.mute();e.target.playVideo();Android.ready();}}});}
+function seek(t){if(player&&player.seekTo){player.seekTo(t,true);}}
+function play(){if(player&&player.playVideo){player.playVideo();}}
+function pause(){if(player&&player.pauseVideo){player.pauseVideo();}}
+function now(){return (player&&player.getCurrentTime)?player.getCurrentTime():-1;}
+</script></body></html>"""
+        w.loadDataWithBaseURL("https://www.youtube.com", html, "text/html", "utf-8", null)
+    }
+
+    /** Keeps the muted video within [VIDEO_DRIFT_SEC] of the song position and mirrors play/pause. */
+    private fun syncVideo(force: Boolean = false) {
+        val w = video ?: return
+        if (!videoReady || videoId == null) return
+        val playing = state?.state == PlaybackState.STATE_PLAYING
+        w.evaluateJavascript(if (playing) "play()" else "pause()", null)
+        val target = positionMs() / 1000.0
+        if (force) { w.evaluateJavascript("seek($target)", null); return }
+        w.evaluateJavascript("now()") { raw ->
+            val current = raw?.toDoubleOrNull() ?: return@evaluateJavascript
+            if (current >= 0 && kotlin.math.abs(current - target) > VIDEO_DRIFT_SEC) w.evaluateJavascript("seek(${positionMs() / 1000.0})", null)
+        }
+    }
+
+    // ---- song notes ------------------------------------------------------------------------------
+
+    private fun showResearch() {
+        val snap = snapshot
+        val key = snap.key ?: return
+        val sheet = BottomSheetDialog(this)
+        val view = layoutInflater.inflate(R.layout.sheet_research, null)
+        val body = view.findViewById<TextView>(R.id.researchBody)
+        view.findViewById<TextView>(R.id.researchTitle).text = listOf(snap.title, snap.artist).filter { it.isNotBlank() }.joinToString(" · ")
+        sheet.setContentView(view)
+        sheet.show()
+        val cfg = prefs.aiConfig
+        val cached = research.cached("$key|${prefs.targetLang}")
+        when {
+            cached != null -> body.text = cached
+            cfg == null -> body.text = getString(R.string.research_unavailable)
+            else -> {
+                body.text = getString(R.string.research_loading)
+                val lyrics = snap.lyrics?.lines?.map { it.text } ?: emptyList()
+                val album = controller?.metadata?.getString(MediaMetadata.METADATA_KEY_ALBUM) ?: ""
+                io.execute {
+                    val text = research.generate(cfg, "$key|${prefs.targetLang}", snap.title, snap.artist, album, lyrics, Lang.target(prefs.targetLang))
+                    main.post { if (sheet.isShowing) body.text = text ?: getString(R.string.research_failed) }
+                }
+            }
+        }
+    }
+
+    private fun positionMs(): Long {
+        val s = state ?: return 0
+        val base = if (s.state != PlaybackState.STATE_PLAYING) s.position
+            else s.position + ((SystemClock.elapsedRealtime() - s.lastPositionUpdateTime) * s.playbackSpeed).toLong()
+        return base + prefs.offsetMs + snapshot.trackOffsetMs
+    }
+
+    private fun render() {
+        findViewById<TextView>(R.id.fsClock).text = clockFormat.format(Date())
+        val pos = positionMs()
+        if (!seeking && durationMs > 0) { seek.value = (pos.coerceIn(0, durationMs) * 1000f / durationMs).coerceIn(0f, 1000f); showTime(pos) }
+        val lyrics = snapshot.lyrics
+        if (lyrics == null || lyrics.isEmpty) {
+            if (shownKey != snapshot.key || shownIndex != Int.MIN_VALUE) {
+                shownKey = snapshot.key; shownIndex = Int.MIN_VALUE
+                lyricsView.showStatus(snapshot.title.ifEmpty { getString(R.string.now_playing_none) },
+                    if (lyrics == null) getString(R.string.lyrics_loading) else getString(R.string.lyrics_none))
+            }
+            return
+        }
+        val i = Lrc.indexAt(lyrics.lines, pos)
+        if (i != shownIndex || shownKey != snapshot.key) {
+            shownIndex = i; shownKey = snapshot.key
+            lyricsView.show(LyricsView.Content(lyrics.lines.map { it.text }, i, snapshot.phonetic, snapshot.translation, lyrics.synced, lyrics.lines.getOrNull(i)?.syllables))
+        }
+        lyricsView.setPosition(pos)
+    }
+
+    private fun showTime(pos: Long) {
+        findViewById<TextView>(R.id.fsElapsed).text = clock(pos)
+        findViewById<TextView>(R.id.fsRemaining).text = "-" + clock((durationMs - pos).coerceAtLeast(0))
+    }
+
+    private fun clock(ms: Long): String = String.format(Locale.US, "%d:%02d", ms / 60000, (ms / 1000) % 60)
+
+    private fun updatePlayPause() {
+        val playing = state?.state == PlaybackState.STATE_PLAYING
+        playPause.setIconResource(if (playing) R.drawable.ic_pause else R.drawable.ic_play)
+        playPause.contentDescription = getString(if (playing) R.string.pause else R.string.play)
+    }
+
+    private fun setControlsVisible(visible: Boolean) {
+        listOf<View>(findViewById(R.id.fsHeader), findViewById(R.id.fsBottom)).forEach { v ->
+            v.animate().alpha(if (visible) 1f else 0f).setDuration(220).withStartAction { if (visible) v.visibility = View.VISIBLE }
+                .withEndAction { if (!visible) v.visibility = View.INVISIBLE }.start()
+        }
+        if (visible) scheduleHide() else main.removeCallbacks(hideControls)
+    }
+
+    private fun scheduleHide() { main.removeCallbacks(hideControls); main.postDelayed(hideControls, CONTROLS_HIDE_MS) }
+
+    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+}

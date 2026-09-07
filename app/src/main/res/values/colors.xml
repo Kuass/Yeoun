@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Ribbon palette: aubergine surfaces, warm ivory text and muted peach accents. -->
+    <color name="ink">#231B2B</color>
+    <color name="ink_raised">#2D2435</color>
+    <color name="ink_line">#483A50</color>
+    <color name="paper">#F8EEDF</color>
+    <color name="paper_dim">#C0AFBE</color>
+    <color name="amber">#E9BD9E</color>
+    <color name="amber_deep">#35251F</color>
+    <color name="teal">#C7B4D4</color>
+    <color name="hero_start">#3B2B41</color>
+    <color name="hero_end">#302535</color>
+
+    <color name="ic_launcher_background">#231B2B</color>
+    <color name="overlay_current">#FFF8EEDF</color>
+    <color name="overlay_phonetic">#E9BD9E</color>
+    <color name="overlay_translation">#E6F8EEDF</color>
+    <color name="overlay_neighbor">#B3DED0DF</color>
+    <color name="overlay_unsung">#99DED0DF</color>
+</resources>

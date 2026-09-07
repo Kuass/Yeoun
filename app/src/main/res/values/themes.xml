@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.IvLyrics" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/amber</item>
+        <item name="colorOnPrimary">@color/amber_deep</item>
+        <item name="colorPrimaryContainer">@color/amber</item>
+        <item name="colorOnPrimaryContainer">@color/amber_deep</item>
+        <item name="colorSecondary">@color/teal</item>
+        <item name="colorSurface">@color/ink</item>
+        <item name="colorSurfaceContainer">@color/ink_raised</item>
+        <item name="colorSurfaceContainerHigh">@color/ink_raised</item>
+        <item name="colorSurfaceContainerHighest">@color/ink_line</item>
+        <item name="colorSurfaceContainerLow">@color/ink_raised</item>
+        <item name="colorOnSurface">@color/paper</item>
+        <item name="colorOnSurfaceVariant">@color/paper_dim</item>
+        <item name="colorOutline">@color/ink_line</item>
+        <item name="colorOutlineVariant">@color/ink_line</item>
+        <item name="android:colorBackground">@color/ink</item>
+        <item name="android:windowBackground">@color/ink</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:fontFamily">@font/pretendard</item>
+        <item name="textAppearanceBodyLarge">@style/Text.Body</item>
+        <item name="textAppearanceBodyMedium">@style/Text.BodyMedium</item>
+        <item name="textAppearanceBodySmall">@style/Text.Small</item>
+        <item name="textAppearanceLabelLarge">@style/Text.Label</item>
+        <item name="textAppearanceLabelMedium">@style/Text.LabelMedium</item>
+        <item name="textAppearanceTitleMedium">@style/Text.Title</item>
+        <item name="textAppearanceTitleSmall">@style/Text.Label</item>
+    </style>
+
+    <style name="Text.Body" parent="TextAppearance.Material3.BodyLarge">
+        <item name="fontFamily">@font/pretendard</item>
+        <item name="android:fontFamily">@font/pretendard</item>
+    </style>
+    <style name="Text.BodyMedium" parent="TextAppearance.Material3.BodyMedium">
+        <item name="fontFamily">@font/pretendard</item>
+        <item name="android:fontFamily">@font/pretendard</item>
+    </style>
+    <style name="Text.Small" parent="TextAppearance.Material3.BodySmall">
+        <item name="fontFamily">@font/pretendard</item>
+        <item name="android:fontFamily">@font/pretendard</item>
+    </style>
+    <style name="Text.Label" parent="TextAppearance.Material3.LabelLarge">
+        <item name="fontFamily">@font/pretendard</item>
+        <item name="android:fontFamily">@font/pretendard</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+    <style name="Text.LabelMedium" parent="TextAppearance.Material3.LabelMedium">
+        <item name="fontFamily">@font/pretendard</item>
+        <item name="android:fontFamily">@font/pretendard</item>
+    </style>
+    <style name="Text.Title" parent="TextAppearance.Material3.TitleMedium">
+        <item name="fontFamily">@font/pretendard</item>
+        <item name="android:fontFamily">@font/pretendard</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+</resources>

@@ -1,0 +1,23 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+.kotlin/
+
+# Local credentials and signing material
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+.DS_Store
+
+# Local design review captures; publish reviewed images through docs/assets/.
+design/
+
+# Python tooling cache
+__pycache__/
+*.pyc

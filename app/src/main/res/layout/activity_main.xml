@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/scroll" android:layout_width="match_parent" android:layout_height="match_parent"
+    android:clipToPadding="true" android:background="@color/ink" android:fillViewport="true">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:focusable="true" android:focusableInTouchMode="true"
+        android:paddingStart="24dp" android:paddingEnd="24dp" android:paddingBottom="32dp">
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginTop="16dp">
+            <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content"
+                android:layout_weight="1" android:orientation="vertical">
+                <TextView android:id="@+id/title" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:fontFamily="@font/gowun_batang" android:text="@string/app_name"
+                    android:textColor="@color/paper" android:textSize="32sp" />
+                <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp" android:text="@string/brand_caption"
+                    android:textColor="@color/paper_dim" android:textSize="13sp" />
+            </LinearLayout>
+            <ImageView android:layout_width="72dp" android:layout_height="72dp"
+                android:src="@drawable/ic_launcher_ribbon" android:scaleType="fitCenter"
+                android:importantForAccessibility="no" android:contentDescription="@null" />
+        </LinearLayout>
+
+        <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:minHeight="48dp" android:gravity="center_vertical" android:paddingStart="2dp" android:paddingEnd="2dp"
+            android:layout_marginTop="8dp" android:layout_marginBottom="8dp"
+            android:textColor="@color/paper_dim" android:textSize="12sp"
+            android:background="?attr/selectableItemBackground" />
+
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:background="@drawable/bg_hero"
+            android:paddingStart="18dp" android:paddingEnd="18dp" android:paddingTop="20dp" android:paddingBottom="20dp">
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:text="@string/preview_title" android:textSize="12sp" android:letterSpacing="0.04"
+                android:textColor="@color/amber" />
+            <FrameLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:minHeight="220dp" android:paddingTop="20dp" android:paddingBottom="20dp">
+                <dev.kuass.ivlyrics.LyricsView android:id="@+id/preview"
+                    android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:layout_gravity="center_vertical" />
+            </FrameLayout>
+            <View android:layout_width="32dp" android:layout_height="2dp" android:layout_gravity="center_horizontal"
+                android:background="@color/amber" android:alpha="0.6" />
+        </LinearLayout>
+        <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginTop="12dp" android:gravity="center" android:text="@string/preview_caption"
+            android:textColor="@color/paper_dim" android:textSize="12sp" />
+
+        <com.google.android.material.tabs.TabLayout android:id="@+id/settingsTabs"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:minHeight="52dp"
+            android:layout_marginTop="24dp" android:background="@android:color/transparent"
+            app:tabMode="auto" app:tabGravity="fill" app:tabMinWidth="72dp"
+            app:tabTextAppearance="@style/Text.Tab" app:tabTextColor="@color/paper_dim"
+            app:tabSelectedTextColor="@color/paper" app:tabIndicatorColor="@color/amber"
+            app:tabIndicatorHeight="2dp" app:tabIndicatorFullWidth="false" />
+        <LinearLayout android:id="@+id/panelDisplay"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:visibility="gone">
+
+        <!-- 가사 창 -->
+        <TextView style="@style/Eyebrow" android:text="@string/section_display" />
+        <com.google.android.material.card.MaterialCardView style="@style/Card">
+            <LinearLayout style="@style/CardBody">
+                <LinearLayout style="@style/SliderHead">
+                    <TextView style="@style/SliderTitle" android:text="@string/font_size" />
+                    <TextView android:id="@+id/valueFont" style="@style/SliderValue" />
+                </LinearLayout>
+                <com.google.android.material.slider.Slider android:id="@+id/sliderFont" android:contentDescription="@string/font_size" style="@style/Slider"
+                    android:stepSize="1" android:valueFrom="10" android:valueTo="40" />
+
+                <LinearLayout style="@style/SliderHead">
+                    <TextView style="@style/SliderTitle" android:text="@string/prev_lines" />
+                    <TextView android:id="@+id/valuePrev" style="@style/SliderValue" />
+                </LinearLayout>
+                <com.google.android.material.slider.Slider android:id="@+id/sliderPrev" android:contentDescription="@string/prev_lines" style="@style/Slider"
+                    android:stepSize="1" android:valueFrom="0" android:valueTo="3" />
+
+                <LinearLayout style="@style/SliderHead">
+                    <TextView style="@style/SliderTitle" android:text="@string/next_lines" />
+                    <TextView android:id="@+id/valueNext" style="@style/SliderValue" />
+                </LinearLayout>
+                <com.google.android.material.slider.Slider android:id="@+id/sliderNext" android:contentDescription="@string/next_lines" style="@style/Slider"
+                    android:stepSize="1" android:valueFrom="0" android:valueTo="5" />
+
+                <LinearLayout style="@style/SliderHead">
+                    <TextView style="@style/SliderTitle" android:text="@string/background" />
+                    <TextView android:id="@+id/valueBg" style="@style/SliderValue" />
+                </LinearLayout>
+                <com.google.android.material.slider.Slider android:id="@+id/sliderBg" android:contentDescription="@string/background" style="@style/Slider"
+                    android:stepSize="5" android:valueFrom="0" android:valueTo="100" />
+
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchAnimate" style="@style/Switch"
+                    android:text="@string/animate" />
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchKaraoke" style="@style/Switch"
+                    android:text="@string/karaoke" />
+
+                <LinearLayout style="@style/SliderHead" android:layout_marginTop="0dp">
+                    <TextView style="@style/SliderTitle" android:text="@string/hide_on_pause" />
+                    <TextView android:id="@+id/valueHide" style="@style/SliderValue" />
+                </LinearLayout>
+                <com.google.android.material.slider.Slider android:id="@+id/sliderHide" android:contentDescription="@string/hide_on_pause" style="@style/Slider"
+                    android:stepSize="5" android:valueFrom="0" android:valueTo="120" />
+                <TextView style="@style/RowDesc" android:layout_marginBottom="8dp" android:text="@string/dismiss_hint" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/panelSources"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:visibility="gone">
+
+        <!-- 지금 재생 중 -->
+        <TextView style="@style/Eyebrow" android:text="@string/section_now_playing" />
+        <com.google.android.material.card.MaterialCardView style="@style/Card">
+            <LinearLayout style="@style/CardBody" android:paddingTop="16dp" android:paddingBottom="12dp">
+                <TextView android:id="@+id/nowTitle" style="@style/RowTitle" android:text="@string/now_playing_none" />
+                <TextView android:id="@+id/nowArtist" style="@style/RowDesc" />
+                <LinearLayout style="@style/SliderHead">
+                    <TextView style="@style/SliderTitle" android:text="@string/track_offset" />
+                    <TextView android:id="@+id/valueTrackOffset" style="@style/SliderValue" />
+                </LinearLayout>
+                <com.google.android.material.slider.Slider android:id="@+id/sliderTrackOffset" android:contentDescription="@string/track_offset" style="@style/Slider"
+                    android:stepSize="100" android:valueFrom="-3000" android:valueTo="3000" />
+                <com.google.android.material.textfield.TextInputLayout style="@style/Field.Dropdown" android:hint="@string/track_lang">
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/trackLang"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="none"  android:hint="@string/track_lang" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.textfield.TextInputLayout style="@style/Field" android:hint="@string/track_video">
+                    <com.google.android.material.textfield.TextInputEditText android:id="@+id/trackVideo"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="textUri" android:maxLines="1" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchPeek" style="@style/Switch"
+                    android:text="@string/peek_overlay" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnFullscreen"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp"
+                    android:text="@string/open_fullscreen" app:icon="@drawable/ic_fullscreen" />
+                <TextView style="@style/RowDesc" android:layout_marginTop="6dp" android:text="@string/fullscreen_hint" />
+                <TextView style="@style/RowDesc" android:text="@string/now_playing_desc" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+
+        <!-- 전체 화면 -->
+        <TextView style="@style/Eyebrow" android:text="@string/section_fullscreen" />
+        <com.google.android.material.card.MaterialCardView style="@style/Card">
+            <LinearLayout style="@style/CardBody" android:paddingTop="4dp" android:paddingBottom="12dp">
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchVideo" style="@style/Switch"
+                    android:text="@string/video_bg" />
+                <TextView style="@style/RowDesc" android:text="@string/video_bg_desc" />
+                <com.google.android.material.textfield.TextInputLayout style="@style/Field" android:hint="@string/yt_api_key"
+                    app:endIconMode="password_toggle">
+                    <com.google.android.material.textfield.TextInputEditText android:id="@+id/ytApiKey"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="textPassword" android:maxLines="1" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 가사 -->
+        <TextView style="@style/Eyebrow" android:text="@string/section_lyrics" />
+        <com.google.android.material.card.MaterialCardView style="@style/Card">
+            <LinearLayout style="@style/CardBody" android:paddingTop="4dp" android:paddingBottom="12dp">
+                <com.google.android.material.textfield.TextInputLayout style="@style/Field.Dropdown" android:hint="@string/source_first">
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/srcFirst"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="none"  android:hint="@string/source_first" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchLrclib" style="@style/Switch"
+                    android:text="@string/source_lrclib" />
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchLyrically" style="@style/Switch"
+                    android:text="@string/source_lyrically" />
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchLyricsPlus" style="@style/Switch"
+                    android:text="@string/source_lyricsplus" />
+                <View style="@style/Divider" android:layout_marginTop="4dp" />
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchCommunity" style="@style/Switch"
+                    android:text="@string/source_community" />
+                <TextView style="@style/RowDesc" android:layout_marginBottom="4dp" android:text="@string/source_community_desc" />
+                <LinearLayout style="@style/SliderHead">
+                    <TextView style="@style/SliderTitle" android:text="@string/sync_offset" />
+                    <TextView android:id="@+id/valueOffset" style="@style/SliderValue" />
+                </LinearLayout>
+                <com.google.android.material.slider.Slider android:id="@+id/sliderOffset" android:contentDescription="@string/sync_offset" style="@style/Slider"
+                    android:stepSize="100" android:valueFrom="-3000" android:valueTo="3000" />
+                <TextView style="@style/RowDesc" android:text="@string/sync_offset_hint" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/panelTranslation"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:visibility="gone">
+
+        <!-- 번역과 발음 -->
+        <TextView style="@style/Eyebrow" android:text="@string/section_ai" />
+        <com.google.android.material.card.MaterialCardView style="@style/Card">
+            <LinearLayout style="@style/CardBody" android:paddingTop="12dp" android:paddingBottom="12dp">
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchTranslate" style="@style/Switch"
+                    android:text="@string/pref_translate" />
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchPhonetic" style="@style/Switch"
+                    android:text="@string/pref_phonetic" />
+                <com.google.android.material.textfield.TextInputLayout style="@style/Field.Dropdown" android:hint="@string/target_lang">
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/targetLang"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="none"  android:hint="@string/target_lang" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.textfield.TextInputLayout style="@style/Field.Dropdown" android:hint="@string/style">
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/style"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="none"  android:hint="@string/style" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.textfield.TextInputLayout style="@style/Field.Multiline" android:hint="@string/instruction">
+                    <com.google.android.material.textfield.TextInputEditText android:id="@+id/instruction"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="textMultiLine|textCapSentences" android:minLines="2" android:maxLines="5" android:gravity="top" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <com.google.android.material.textfield.TextInputLayout style="@style/Field.Dropdown" android:hint="@string/notation">
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/notation"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="none"  android:hint="@string/notation" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <View style="@style/Divider" android:layout_marginTop="16dp" />
+                <TextView style="@style/RowDesc" android:layout_marginTop="12dp" android:text="@string/ai_desc" />
+
+                <com.google.android.material.textfield.TextInputLayout style="@style/Field.Dropdown" android:hint="@string/provider">
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/provider"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="none"  android:hint="@string/provider" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout style="@style/Field" android:hint="@string/base_url">
+                    <com.google.android.material.textfield.TextInputEditText android:id="@+id/baseUrl"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="textUri" android:maxLines="1" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout style="@style/Field" android:hint="@string/api_key"
+                    app:endIconMode="password_toggle">
+                    <com.google.android.material.textfield.TextInputEditText android:id="@+id/apiKey"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:inputType="textPassword" android:maxLines="1" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <com.google.android.material.textfield.TextInputLayout style="@style/Field.Dropdown" android:hint="@string/model">
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/model"
+                        android:layout_width="match_parent" android:layout_height="wrap_content"
+                        android:completionThreshold="1" android:inputType="text" android:maxLines="1"  android:hint="@string/model" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:gravity="end" android:layout_marginTop="8dp">
+                    <com.google.android.material.button.MaterialButton android:id="@+id/btnClearCache"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/clear_cache" />
+                    <com.google.android.material.button.MaterialButton android:id="@+id/btnModels"
+                        style="@style/Widget.Material3.Button.TextButton"
+                        android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@string/load_models" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+        <LinearLayout android:id="@+id/panelApp"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:visibility="gone">
+
+        <!-- 연결 -->
+        <TextView style="@style/Eyebrow" android:text="@string/section_permissions" />
+        <com.google.android.material.card.MaterialCardView android:id="@+id/connection" style="@style/Card">
+            <LinearLayout style="@style/CardBody" android:paddingTop="0dp" android:paddingBottom="0dp">
+                <LinearLayout android:id="@+id/rowNotification" style="@style/Row">
+                    <ImageView style="@style/RowIcon" android:src="@drawable/ic_notifications" android:contentDescription="@null" />
+                    <LinearLayout style="@style/RowText">
+                        <TextView style="@style/RowTitle" android:text="@string/perm_notification" />
+                        <TextView style="@style/RowDesc" android:text="@string/perm_notification_desc" />
+                    </LinearLayout>
+                    <TextView android:id="@+id/stateNotification" style="@style/RowState" />
+                </LinearLayout>
+                <View style="@style/Divider" />
+                <LinearLayout android:id="@+id/rowOverlay" style="@style/Row">
+                    <ImageView style="@style/RowIcon" android:src="@drawable/ic_layers" android:contentDescription="@null" />
+                    <LinearLayout style="@style/RowText">
+                        <TextView style="@style/RowTitle" android:text="@string/perm_overlay" />
+                        <TextView style="@style/RowDesc" android:text="@string/perm_overlay_desc" />
+                    </LinearLayout>
+                    <TextView android:id="@+id/stateOverlay" style="@style/RowState" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- 앱 -->
+        <TextView style="@style/Eyebrow" android:text="@string/section_app" />
+        <com.google.android.material.card.MaterialCardView style="@style/Card">
+            <LinearLayout style="@style/CardBody" android:paddingTop="4dp" android:paddingBottom="16dp">
+                <com.google.android.material.textfield.TextInputLayout style="@style/Field.Dropdown" android:hint="@string/app_language">
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/appLang"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="none"  android:hint="@string/app_language" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>
