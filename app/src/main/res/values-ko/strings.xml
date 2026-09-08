@@ -114,4 +114,11 @@
     <string name="tab_app">앱 설정</string>
     <string name="playback_position">재생 위치</string>
     <string name="sync_order_error">이전 줄과 같거나 더 늦은 시점에 표시해 주세요.</string>
+    <string name="about_title">앱 정보</string>
+    <string name="about_version_value">버전 %1$s (빌드 %2$d)</string>
+    <string name="about_author">제작자 Kuass의 GitHub 프로필</string>
+    <string name="about_star_hint">여운이 마음에 드셨다면 GitHub 저장소에 Star를 눌러 응원해 주세요.</string>
+    <string name="about_repository">GitHub에서 Star로 응원하기</string>
+    <string name="about_releases">업데이트 내역</string>
+    <string name="about_link_unavailable">이 링크를 열 수 있는 앱이 없어요.</string>
 </resources>

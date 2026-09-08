@@ -299,6 +299,7 @@
                 </com.google.android.material.textfield.TextInputLayout>
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
+        <include layout="@layout/view_about" />
         </LinearLayout>
     </LinearLayout>
 </androidx.core.widget.NestedScrollView>

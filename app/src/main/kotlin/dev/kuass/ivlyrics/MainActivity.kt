@@ -112,6 +112,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun bindApp() {
+        AboutUi.bind(this)
         dropdown(R.id.appLang, listOf(
             Prefs.APP_LANG_SYSTEM to getString(R.string.lang_system),
             "ko" to getString(R.string.lang_ko),

@@ -136,4 +136,11 @@
     <string name="tab_app">Settings</string>
     <string name="playback_position">Playback position</string>
     <string name="sync_order_error">Choose a time at or after the previous line.</string>
+    <string name="about_title">About</string>
+    <string name="about_version_value">Version %1$s (build %2$d)</string>
+    <string name="about_author">Created by Kuass · GitHub profile</string>
+    <string name="about_star_hint">Enjoying Yeoun? Star the repository on GitHub to support the project.</string>
+    <string name="about_repository">Open GitHub · Leave a Star</string>
+    <string name="about_releases">Release notes</string>
+    <string name="about_link_unavailable">No app is available to open this link.</string>
 </resources>
