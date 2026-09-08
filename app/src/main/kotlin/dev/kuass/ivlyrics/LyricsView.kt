@@ -25,7 +25,8 @@ import androidx.core.view.doOnPreDraw
  * Shared lines keep their screen baselines across a transition, so the next line flows into focus.
  */
 class LyricsView @JvmOverloads constructor(ctx: Context, attrs: AttributeSet? = null) : FrameLayout(ctx, attrs) {
-    data class Style(val fontSp: Int, val prevLines: Int, val nextLines: Int, val animate: Boolean, val bgPercent: Int, val karaoke: Boolean = true, val rowGapDp: Int = 2)
+    data class Style(val fontSp: Int, val prevLines: Int, val nextLines: Int, val animate: Boolean, val bgPercent: Int, val karaoke: Boolean = true, val rowGapDp: Int = 2,
+        val translationPrev: Int = 0, val translationNext: Int = 0, val phoneticPrev: Int = 0, val phoneticNext: Int = 0, val inlinePronunciation: Boolean = true)
 
     data class Content(
         val lines: List<String>,
@@ -54,6 +55,10 @@ class LyricsView @JvmOverloads constructor(ctx: Context, attrs: AttributeSet? = 
     private val panel = GradientDrawable().apply { cornerRadius = 20 * dp }
     private var style = Style(Prefs.DEFAULT_FONT_SP, Prefs.DEFAULT_PREV_LINES, Prefs.DEFAULT_NEXT_LINES, true, Prefs.DEFAULT_BG_PERCENT)
     private var column: LinearLayout? = null
+    private val heightTransition = HeightTransition()
+    private var measuredWidthForTransition = 0
+    private val resizeFrame = Runnable { requestLayout() }
+    private var lastContent: Content? = null
     private var shownIndex = Int.MIN_VALUE
     private var currentView: TextView? = null
     private var currentSyllables: List<Syl>? = null
@@ -83,6 +88,7 @@ class LyricsView @JvmOverloads constructor(ctx: Context, attrs: AttributeSet? = 
 
     /** Title-style status, e.g. while searching or when nothing was found. */
     fun showStatus(title: String, detail: String) {
+        lastContent = null
         shownIndex = Int.MIN_VALUE
         currentView = null
         currentSyllables = null
@@ -93,6 +99,7 @@ class LyricsView @JvmOverloads constructor(ctx: Context, attrs: AttributeSet? = 
     }
 
     fun show(content: Content) {
+        lastContent = content
         if (content.lines.isEmpty()) return
         val previousIndex = shownIndex
         val scroll = LyricsMotion.shouldScroll(previousIndex, content.index, shownLines == content.lines, style.animate)
@@ -100,9 +107,15 @@ class LyricsView @JvmOverloads constructor(ctx: Context, attrs: AttributeSet? = 
         shownLines = content.lines
         val i = content.index
         val next = newColumn()
-        for (j in window(i, style.prevLines, style.nextLines, content.lines.size)) {
-            when {
-                j == i -> {
+        currentView = null
+        currentSyllables = null
+        val rows = LyricsRows.build(i, content.lines.size, style, content.translation != null, content.phonetic != null)
+        for (row in rows) {
+            val j = row.index
+            val groupStart = next.childCount
+            var inline = false
+            if (row.original) {
+                if (j == i) {
                     val mark = if (content.synced) "" else UNSYNCED_MARK
                     val current = line(mark + text(content.lines[i]), 1f, bold, R.color.overlay_current) as TextView
                     current.tag = LineKey(j, 0)
@@ -110,10 +123,39 @@ class LyricsView @JvmOverloads constructor(ctx: Context, attrs: AttributeSet? = 
                     currentSyllables = content.syllables?.takeIf { style.karaoke && it.isNotEmpty() && mark.isEmpty() }
                     sungChars = -1
                     next.addView(current)
-                    extra(content.phonetic?.getOrNull(i))?.let { next.addView(line(it, 0.8f, regular, R.color.overlay_phonetic).apply { tag = LineKey(j, 1) }) }
-                    extra(content.translation?.getOrNull(i))?.let { next.addView(line(it, 0.85f, regular, R.color.overlay_translation).apply { tag = LineKey(j, 2) }) }
+                } else next.addView(line(text(content.lines[j]), 0.75f, regular, R.color.overlay_neighbor).apply { tag = LineKey(j, 0) })
+            }
+            if (row.original && row.phonetic && style.inlinePronunciation) {
+                val originalView = next.getChildAt(groupStart) as? TextView
+                val reading = content.phonetic?.getOrNull(j)
+                if (originalView != null && reading != null && content.synced) {
+                    val styled = InlinePronunciation.styled(content.lines[j], reading, originalView.paint,
+                        ((if (width > 0) width else resources.displayMetrics.widthPixels) - paddingLeft - paddingRight).coerceAtLeast(1),
+                        ContextCompat.getColor(context, R.color.overlay_phonetic), unsungColor)
+                    if (styled != null) {
+                        originalView.text = styled
+                        originalView.contentDescription = content.lines[j] + "\n" + InlinePronunciation.plain(reading)
+                        inline = true
+                    }
                 }
-                else -> next.addView(line(text(content.lines[j]), 0.75f, regular, R.color.overlay_neighbor).apply { tag = LineKey(j, 0) })
+            }
+            if (row.phonetic && !inline) extra(content.phonetic?.getOrNull(j))?.let {
+                next.addView(line(InlinePronunciation.plain(it), if (j == i) 0.8f else 0.65f, regular, R.color.overlay_phonetic).apply { tag = LineKey(j, 1) })
+            }
+            if (row.translation) extra(content.translation?.getOrNull(j))?.let {
+                next.addView(line(it, if (j == i) 0.85f else 0.7f, regular, R.color.overlay_translation).apply { tag = LineKey(j, 2) })
+            }
+            for (childIndex in groupStart until next.childCount) {
+                val child = next.getChildAt(childIndex) as TextView
+                child.includeFontPadding = false
+                val firstInGroup = childIndex == groupStart
+                val role = (child.tag as LineKey).role
+                val gap = when {
+                    firstInGroup && groupStart > 0 -> maxOf(6, style.rowGapDp * 2)
+                    !firstInGroup && role == 2 -> 6
+                    else -> 0
+                }
+                child.setPadding(0, (gap * dp).toInt(), 0, 0)
             }
         }
         if (i < 0) next.addView(line(BLANK_LINE, 1f, bold, R.color.overlay_current), 0)
@@ -124,12 +166,18 @@ class LyricsView @JvmOverloads constructor(ctx: Context, attrs: AttributeSet? = 
      * Karaoke: characters whose syllable has started by [posMs] stay bright, the rest dim.
      * Cheap when nothing changed, so it is safe to call on every playback tick.
      */
+    fun currentLineCenter(): Int? = currentView?.let { (column?.top ?: 0) + it.top + it.height / 2 }
+
     fun setPosition(posMs: Long) {
         val view = currentView ?: return
         val syls = currentSyllables ?: return
         val sung = Lrc.sungChars(syls, posMs).coerceAtMost(view.text.length)
         if (sung == sungChars) return
         sungChars = sung
+        val rubies = (view.text as? Spanned)?.getSpans(0, view.text.length, InlinePronunciation.Ruby::class.java).orEmpty()
+        if (rubies.isNotEmpty()) {
+            rubies.forEach { it.sung = sung }; view.invalidate(); return
+        }
         val span = SpannableString(view.text.toString())
         if (sung < span.length) span.setSpan(ForegroundColorSpan(unsungColor), sung, span.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         view.setText(span, TextView.BufferType.SPANNABLE)
@@ -222,7 +270,29 @@ class LyricsView @JvmOverloads constructor(ctx: Context, attrs: AttributeSet? = 
         }
     }
 
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        super.onMeasure(widthMeasureSpec, heightMeasureSpec)
+        val naturalHeight = measuredHeight
+        val now = android.os.SystemClock.uptimeMillis()
+        val animate = style.animate && ValueAnimator.areAnimatorsEnabled() && isAttachedToWindow && measuredWidth == measuredWidthForTransition
+        measuredWidthForTransition = measuredWidth
+        val displayedHeight = heightTransition.update(naturalHeight, now, animate)
+        setMeasuredDimension(measuredWidth, resolveSize(displayedHeight, heightMeasureSpec))
+        removeCallbacks(resizeFrame)
+        if (heightTransition.running(now)) postOnAnimation(resizeFrame)
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        val content = lastContent
+        if (w > 0 && w != oldw && content != null) post {
+            if (width == w && lastContent === content) show(content)
+        }
+    }
+
     override fun onDetachedFromWindow() {
+        removeCallbacks(resizeFrame)
+        heightTransition.reset()
         ++transitionVersion
         motion?.cancel()
         motion = null

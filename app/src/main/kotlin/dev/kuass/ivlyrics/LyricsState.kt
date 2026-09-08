@@ -12,6 +12,9 @@ object LyricsState {
         val translation: List<String>? = null,
         val phonetic: List<String>? = null,
         val trackOffsetMs: Int = 0,
+        val sourceLanguages: List<String> = emptyList(),
+        val extrasKey: String? = null,
+        val extrasProgress: ExtrasProgress.Status? = null,
     )
 
     @Volatile var snapshot = Snapshot()

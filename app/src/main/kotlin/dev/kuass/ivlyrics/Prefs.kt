@@ -19,6 +19,12 @@ class Prefs(ctx: Context) {
         const val FONT_SP = "font_sp"
         const val PREV_LINES = "prev_lines"
         const val NEXT_LINES = "next_lines"
+        const val TRANSLATION_PREV = "translation_prev"
+        const val TRANSLATION_NEXT = "translation_next"
+        const val PHONETIC_PREV = "phonetic_prev"
+        const val PHONETIC_NEXT = "phonetic_next"
+        const val EXTRAS_VERSION = "extras_version"
+        const val INLINE_PRONUNCIATION = "inline_pronunciation"
         const val ANIMATE = "animate"
         const val KARAOKE = "karaoke"
         const val VIDEO_BG = "video_bg"
@@ -62,6 +68,11 @@ class Prefs(ctx: Context) {
     val fontSp: Int get() = sp.getInt(FONT_SP, DEFAULT_FONT_SP)
     val prevLines: Int get() = sp.getInt(PREV_LINES, DEFAULT_PREV_LINES)
     val nextLines: Int get() = sp.getInt(NEXT_LINES, DEFAULT_NEXT_LINES)
+    val translationPrev get() = sp.getInt(TRANSLATION_PREV, 0).coerceIn(0, 3)
+    val translationNext get() = sp.getInt(TRANSLATION_NEXT, 0).coerceIn(0, 5)
+    val phoneticPrev get() = sp.getInt(PHONETIC_PREV, 0).coerceIn(0, 3)
+    val phoneticNext get() = sp.getInt(PHONETIC_NEXT, 0).coerceIn(0, 5)
+    val inlinePronunciation get() = sp.getBoolean(INLINE_PRONUNCIATION, true)
     val animate: Boolean get() = sp.getBoolean(ANIMATE, true)
     val karaoke: Boolean get() = sp.getBoolean(KARAOKE, true)
     val videoBg: Boolean get() = sp.getBoolean(VIDEO_BG, true)
@@ -84,7 +95,7 @@ class Prefs(ctx: Context) {
     val isAiConfigured: Boolean get() = apiKey.isNotEmpty() && model.isNotEmpty()
     val aiConfig: Ai.Config? get() = if (isAiConfigured) Ai.Config(baseUrl, apiKey, model) else null
     val aiOptions: Ai.Options get() = Ai.Options(Lang.target(targetLang), Lang.Style.of(style), instruction, Lang.Notation.of(notation))
-    val lyricsStyle: LyricsView.Style get() = LyricsView.Style(fontSp, prevLines, nextLines, animate, bgPercent, karaoke)
+    val lyricsStyle: LyricsView.Style get() = LyricsView.Style(fontSp, prevLines, nextLines, animate, bgPercent, karaoke, translationPrev = translationPrev, translationNext = translationNext, phoneticPrev = phoneticPrev, phoneticNext = phoneticNext, inlinePronunciation = inlinePronunciation)
     val sourceOrder: List<String> get() = LyricsSources.order(srcFirst, buildSet {
         if (srcLrclib) add(LrcLib.ID); if (srcLyrically) add(Lyrically.ID); if (srcLyricsPlus) add(LyricsPlus.ID)
     })

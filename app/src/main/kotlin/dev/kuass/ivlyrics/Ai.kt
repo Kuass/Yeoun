@@ -135,6 +135,7 @@ TASK RULES:
 - If an input line contains " / " between simultaneous vocal parts, preserve " / " and convert each part separately.
 - Keep empty lines empty. Keep music symbols and structural markers such as ♪, [Chorus], and (Yeah).
 - Do not add line numbers, prefixes, explanations, JSON, Markdown, or code fences.
+- For each input line, split its original text at whitespace. Return one pronunciation chunk per original token, in that exact order, separated by the full-width delimiter ｜. A chunk may contain spaces. Never add, drop, or reorder original tokens.
 - Return only the pronunciation lines.
 
 SCRIPT EXAMPLES:
