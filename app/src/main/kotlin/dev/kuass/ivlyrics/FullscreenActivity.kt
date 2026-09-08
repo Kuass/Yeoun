@@ -62,6 +62,8 @@ class FullscreenActivity : AppCompatActivity() {
     private var controller: MediaController? = null
     private var state: PlaybackState? = null
     private var durationMs = 0L
+    private val follow = ScrollFollow()
+    private lateinit var followButton: MaterialButton
     private var seeking = false
     private var shownIndex = Int.MIN_VALUE
     private var shownKey: Triple<String, String, Long>? = null
@@ -97,6 +99,17 @@ class FullscreenActivity : AppCompatActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         setContentView(R.layout.activity_fullscreen)
         lyricsView = findViewById(R.id.fsLyrics)
+        lyricsView.setOnClickListener { findViewById<View>(R.id.fsRoot).performClick() }
+        followButton = MaterialButton(this).apply {
+            setText(R.string.follow_current); visibility = View.GONE
+            setOnClickListener { follow.resume(); visibility = View.GONE; shownIndex = Int.MIN_VALUE; render() }
+        }
+        findViewById<android.widget.FrameLayout>(R.id.fsRoot).addView(followButton,
+            android.widget.FrameLayout.LayoutParams(-2, -2, android.view.Gravity.BOTTOM or android.view.Gravity.CENTER_HORIZONTAL).apply { bottomMargin = dp(190) })
+        findViewById<ManualScrollView>(R.id.fsLyricsScroll).onManualTouch = { touching ->
+            if (touching) { follow.begin(); followButton.visibility = View.VISIBLE }
+            else follow.end(SystemClock.elapsedRealtime())
+        }
         background = findViewById(R.id.fsBackground)
         art = findViewById(R.id.fsArt)
         seek = findViewById(R.id.fsSeek)
@@ -129,13 +142,17 @@ class FullscreenActivity : AppCompatActivity() {
             }
         })
         seek.addOnChangeListener { _, value, fromUser -> if (fromUser) showTime((value / 1000f * durationMs).toLong()) }
+        applyLyricsStyle()
+    }
+
+    private fun applyLyricsStyle() {
         val style = prefs.lyricsStyle
-        lyricsView.setStyle(style.copy(fontSp = (style.fontSp * FONT_SCALE).toInt().coerceIn(20, 48), bgPercent = 0,
-            prevLines = maxOf(1, style.prevLines), nextLines = maxOf(2, style.nextLines), rowGapDp = ROW_GAP_DP))
+        lyricsView.setStyle(style.copy(fontSp = (style.fontSp * FONT_SCALE).toInt().coerceIn(20, 48), bgPercent = 0, rowGapDp = ROW_GAP_DP))
     }
 
     override fun onResume() {
         super.onResume()
+        applyLyricsStyle()
         prefs.putBoolean(Prefs.UI_OPEN, true)
         WindowInsetsControllerCompat(window, window.decorView).apply {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
@@ -313,7 +330,17 @@ function now(){return (player&&player.getCurrentTime)?player.getCurrentTime():-1
         return base + prefs.offsetMs + snapshot.trackOffsetMs
     }
 
+    private fun scrollToCurrent() {
+        val scroll = findViewById<androidx.core.widget.NestedScrollView>(R.id.fsLyricsScroll)
+        lyricsView.post { lyricsView.currentLineCenter()?.let { center ->
+            scroll.smoothScrollTo(0, (lyricsView.top + center - scroll.height / 2).coerceAtLeast(0))
+        } }
+    }
+
     private fun render() {
+        if (::followButton.isInitialized && followButton.visibility == View.VISIBLE && !follow.paused(SystemClock.elapsedRealtime())) {
+            followButton.visibility = View.GONE; shownIndex = Int.MIN_VALUE
+        }
         findViewById<TextView>(R.id.fsClock).text = clockFormat.format(Date())
         val pos = positionMs()
         if (!seeking && durationMs > 0) { seek.value = (pos.coerceIn(0, durationMs) * 1000f / durationMs).coerceIn(0f, 1000f); showTime(pos) }
@@ -326,10 +353,13 @@ function now(){return (player&&player.getCurrentTime)?player.getCurrentTime():-1
             }
             return
         }
+        if (shownKey != snapshot.key) { follow.resume(); followButton.visibility = View.GONE }
+        if (follow.paused(SystemClock.elapsedRealtime())) { lyricsView.setPosition(pos); return }
         val i = Lrc.indexAt(lyrics.lines, pos)
         if (i != shownIndex || shownKey != snapshot.key) {
             shownIndex = i; shownKey = snapshot.key
             lyricsView.show(LyricsView.Content(lyrics.lines.map { it.text }, i, snapshot.phonetic, snapshot.translation, lyrics.synced, lyrics.lines.getOrNull(i)?.syllables))
+            if (!follow.paused(SystemClock.elapsedRealtime())) scrollToCurrent()
         }
         lyricsView.setPosition(pos)
     }

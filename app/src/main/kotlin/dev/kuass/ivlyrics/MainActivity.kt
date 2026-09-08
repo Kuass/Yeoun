@@ -16,6 +16,8 @@ import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.TextView
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.LocaleListCompat
@@ -39,6 +41,77 @@ class MainActivity : AppCompatActivity() {
         const val DEMO_TICK_MS = 80L
         var rebindRequested = false
     }
+
+    private val backupExport = registerForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri != null) io.execute {
+            val result = runCatching {
+                val data = BackupCodec.encode(BackupStore(this).snapshot())
+                require(data.toByteArray().size <= BackupCodec.MAX_BYTES)
+                val output = contentResolver.openOutputStream(uri, "wt") ?: error("Cannot open document")
+                output.bufferedWriter().use { it.write(data) }
+            }
+            main.post { if (!isDestroyed) documentMessage(if (result.isSuccess) R.string.backup_saved else R.string.backup_failed) }
+        }
+    }
+    private val backupImport = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) io.execute {
+            val result = runCatching { requireNotNull(contentResolver.openInputStream(uri)).use(BackupCodec::read) }
+            main.post {
+                if (isDestroyed || isFinishing) return@post
+                result.onSuccess { data ->
+                    MaterialAlertDialogBuilder(this).setTitle(R.string.backup_restore)
+                        .setMessage(getString(R.string.backup_preview, data.tracks.size, data.local.size, data.presets.size, data.edits.size))
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .setPositiveButton(R.string.backup_restore) { _, _ -> io.execute {
+                            val restored = runCatching { BackupStore(this).restore(data) }
+                            main.post {
+                                if (isDestroyed || isFinishing) return@post
+                                if (restored.isSuccess) {
+                                    val code = prefs.appLang
+                                    val locales = if (code == Prefs.APP_LANG_SYSTEM) LocaleListCompat.getEmptyLocaleList() else LocaleListCompat.forLanguageTags(code)
+                                    if (AppCompatDelegate.getApplicationLocales() == locales) recreate()
+                                    else AppCompatDelegate.setApplicationLocales(locales)
+                                } else documentMessage(R.string.backup_partial_failure)
+                            }
+                        } }.show()
+                }.onFailure { documentMessage(R.string.backup_invalid) }
+            }
+        }
+    }
+    private var importKey: String? = null
+    private var exportFile: String? = null
+    private val importDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        val key = importKey
+        importKey = null
+        if (uri != null && key != null) io.execute {
+            val result = runCatching {
+                val text = contentResolver.openInputStream(uri)?.use(LyricsDocument::read)
+                    ?: error("Cannot read document")
+                LocalLyrics(this).set(key, text)
+                prefs.bumpTrackPrefs()
+            }
+            main.post {
+                if (!isDestroyed && !isFinishing) documentMessage(if (result.isSuccess) R.string.lrc_imported else R.string.lrc_import_error)
+            }
+        }
+    }
+    private val exportDocument = registerForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) { uri ->
+        val file = exportFile?.let { java.io.File(cacheDir, it) }
+        exportFile = null
+        if (file != null) io.execute {
+            if (uri == null) { file.delete(); return@execute }
+            val result = runCatching {
+                val output = contentResolver.openOutputStream(uri, "wt") ?: error("Cannot write document")
+                output.use { destination -> file.inputStream().use { it.copyTo(destination) } }
+            }
+            file.delete()
+            main.post {
+                if (!isDestroyed && !isFinishing) documentMessage(if (result.isSuccess) R.string.lrc_exported else R.string.lrc_export_error)
+            }
+        }
+    }
+
+    private fun documentMessage(id: Int) = Snackbar.make(findViewById(R.id.scroll), id, Snackbar.LENGTH_LONG).show()
 
     private lateinit var prefs: Prefs
     private lateinit var preview: LyricsView
@@ -69,6 +142,8 @@ class MainActivity : AppCompatActivity() {
             isAppearanceLightNavigationBars = false
         }
         prefs = Prefs(this)
+        importKey = savedInstanceState?.getString("import_key")
+        exportFile = savedInstanceState?.getString("export_file")
         setContentView(R.layout.activity_main)
         val scroll = findViewById<NestedScrollView>(R.id.scroll)
         ViewCompat.setOnApplyWindowInsetsListener(scroll) { v, insets ->
@@ -81,10 +156,25 @@ class MainActivity : AppCompatActivity() {
         bindDisplay()
         bindLyrics()
         bindNowPlaying()
+        showNowPlaying(null)
         bindAi()
         bindApp()
-        bindSections(savedInstanceState?.getInt("settings_section") ?: 0)
+        bindSections(savedInstanceState?.getInt("settings_section") ?: intent.getIntExtra("settings_section", 0))
+        if (savedInstanceState == null) handleSettingsIntent()
         refreshPreview()
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        findViewById<TabLayout>(R.id.settingsTabs).getTabAt(intent.getIntExtra("settings_section", 0).coerceIn(0, 3))?.select()
+        handleSettingsIntent()
+    }
+
+    private fun handleSettingsIntent() {
+        val language = intent.getStringExtra("source_language")?.takeIf { it in SourceLanguage.CODES } ?: return
+        intent.removeExtra("source_language")
+        LanguageSettingsUi.show(this, language) { refreshPreview() }
     }
 
     private fun bindSections(selected: Int) {
@@ -108,11 +198,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putInt("settings_section", findViewById<TabLayout>(R.id.settingsTabs).selectedTabPosition)
+        outState.putString("import_key", importKey)
+        outState.putString("export_file", exportFile)
         super.onSaveInstanceState(outState)
     }
 
     private fun bindApp() {
         AboutUi.bind(this)
+        findViewById<View>(R.id.btnBackup).setOnClickListener { backupExport.launch("yeoun-backup.json") }
+        findViewById<View>(R.id.btnRestore).setOnClickListener { backupImport.launch(arrayOf("application/json", "text/plain")) }
         dropdown(R.id.appLang, listOf(
             Prefs.APP_LANG_SYSTEM to getString(R.string.lang_system),
             "ko" to getString(R.string.lang_ko),
@@ -127,6 +221,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        LyricsState.addListener(extrasListener)
         prefs.putBoolean(Prefs.UI_OPEN, true)
         findViewById<MaterialSwitch>(R.id.switchPeek).isChecked = false
         refreshPermissions()
@@ -137,6 +232,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
+        LyricsState.removeListener(extrasListener)
         stopSessionWatch()
         main.removeCallbacks(demo)
         main.removeCallbacks(demoTick)
@@ -191,6 +287,12 @@ class MainActivity : AppCompatActivity() {
     // ---- display -----------------------------------------------------------------------------
 
     private fun bindDisplay() {
+        switch(R.id.switchInlinePronunciation, prefs.inlinePronunciation, Prefs.INLINE_PRONUNCIATION)
+        findViewById<View>(R.id.btnPresets).setOnClickListener { PresetUi.show(this) }
+        slider(R.id.sliderTranslationPrev, R.id.valueTranslationPrev, prefs.translationPrev, Prefs.TRANSLATION_PREV) { getString(R.string.lines_format, it) }
+        slider(R.id.sliderTranslationNext, R.id.valueTranslationNext, prefs.translationNext, Prefs.TRANSLATION_NEXT) { getString(R.string.lines_format, it) }
+        slider(R.id.sliderPhoneticPrev, R.id.valuePhoneticPrev, prefs.phoneticPrev, Prefs.PHONETIC_PREV) { getString(R.string.lines_format, it) }
+        slider(R.id.sliderPhoneticNext, R.id.valuePhoneticNext, prefs.phoneticNext, Prefs.PHONETIC_NEXT) { getString(R.string.lines_format, it) }
         slider(R.id.sliderFont, R.id.valueFont, prefs.fontSp, Prefs.FONT_SP) { getString(R.string.sp_format, it) }
         slider(R.id.sliderPrev, R.id.valuePrev, prefs.prevLines, Prefs.PREV_LINES) { getString(R.string.lines_format, it) }
         slider(R.id.sliderNext, R.id.valueNext, prefs.nextLines, Prefs.NEXT_LINES) { getString(R.string.lines_format, it) }
@@ -260,6 +362,29 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun bindNowPlaying() {
+        findViewById<View>(R.id.btnRetryExtras).setOnClickListener { prefs.putString(Prefs.EXTRAS_VERSION, java.util.UUID.randomUUID().toString()) }
+        dropdown(R.id.sourceLanguage, sourceLanguageOptions(), "") { source ->
+            nowKey?.let { key ->
+                trackPrefs.set(key, trackPrefs.get(key).copy(sourceLanguage = source.ifEmpty { null }))
+                prefs.bumpTrackPrefs()
+            }
+        }
+        findViewById<View>(R.id.btnLyricsSearch).setOnClickListener {
+            val key = nowKey ?: return@setOnClickListener
+            val md = controller?.metadata
+            LyricsSearchUi.show(this, key, md?.getString(MediaMetadata.METADATA_KEY_TITLE).orEmpty(), md?.getString(MediaMetadata.METADATA_KEY_ARTIST).orEmpty())
+        }
+        findViewById<View>(R.id.btnExtrasEditor).setOnClickListener {
+            val snap = LyricsState.snapshot
+            if (snap.key?.let { TrackPrefs.key(it.first, it.second, it.third) } == nowKey) ExtrasEditorUi.show(this, snap)
+        }
+        findViewById<MaterialButton>(R.id.btnLocalLyrics).setOnClickListener { showLocalLyrics() }
+        dropdown(R.id.trackSource, sourceOptions(), "") { source ->
+            nowKey?.let { key ->
+                trackPrefs.set(key, trackPrefs.get(key).copy(source = source.ifEmpty { null }))
+                prefs.bumpTrackPrefs()
+            }
+        }
         switch(R.id.switchVideo, prefs.videoBg, Prefs.VIDEO_BG)
         findViewById<TextInputEditText>(R.id.ytApiKey).apply {
             setText(prefs.ytApiKey)
@@ -327,7 +452,15 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.nowArtist).text = artist
         val enabled = nowKey != null
         slider.isEnabled = enabled; lang.isEnabled = enabled
+        findViewById<View>(R.id.btnLocalLyrics).isEnabled = enabled
+        findViewById<View>(R.id.btnLyricsSearch).isEnabled = enabled
+        findViewById<View>(R.id.sourceLanguage).isEnabled = enabled
+        findViewById<AutoCompleteTextView>(R.id.trackSource).isEnabled = enabled
         val entry = nowKey?.let { trackPrefs.get(it) } ?: TrackPrefs.Entry()
+        findViewById<AutoCompleteTextView>(R.id.sourceLanguage).setText(sourceLanguageOptions().firstOrNull { it.first == (entry.sourceLanguage ?: "") }?.second, false)
+        showExtrasState(LyricsState.snapshot)
+        findViewById<AutoCompleteTextView>(R.id.trackSource).setText(
+            sourceOptions().firstOrNull { it.first == (entry.source ?: "") }?.second, false)
         slider.value = entry.offsetMs.toFloat().coerceIn(slider.valueFrom, slider.valueTo)
         val label = entry.lang?.let { code -> Lang.TARGETS.firstOrNull { it.code == code } }?.let { "${it.native} · ${it.name}" }
             ?: getString(R.string.track_lang_default)
@@ -338,12 +471,92 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val extrasListener: (LyricsState.Snapshot) -> Unit = { showExtrasState(it) }
+
+    private fun showExtrasState(snapshot: LyricsState.Snapshot) {
+        val matches = nowKey != null && snapshot.key?.let { TrackPrefs.key(it.first, it.second, it.third) } == nowKey
+        findViewById<View>(R.id.btnExtrasEditor).isEnabled = matches && snapshot.extrasKey != null
+        val languages = if (matches) snapshot.sourceLanguages.filter { it.isNotEmpty() }.distinct() else emptyList()
+        findViewById<TextView>(R.id.extrasProgress).text = if (matches) snapshot.extrasProgress?.label(this).orEmpty() else ""
+        findViewById<View>(R.id.btnRetryExtras).isEnabled = matches && snapshot.extrasProgress?.canRetry == true
+        findViewById<TextView>(R.id.detectedLanguages).text = getString(R.string.detected_languages,
+            languages.joinToString(", ") { SourceLanguage.label(it, this) }.ifEmpty { getString(R.string.language_unset) })
+    }
+
+    private fun sourceLanguageOptions() = listOf("" to getString(R.string.source_language_auto)) +
+        SourceLanguage.CODES.map { it to SourceLanguage.label(it, this) }
+
+    private fun sourceOptions() = listOf(
+        "" to getString(R.string.track_source_default),
+        LrcLib.ID to getString(R.string.source_lrclib),
+        Lyrically.ID to getString(R.string.source_lyrically),
+        LyricsPlus.ID to getString(R.string.source_lyricsplus),
+    )
+
+    private fun showLocalLyrics() {
+        val key = nowKey ?: return
+        val local = LocalLyrics(this)
+        val stored = local.get(key)
+        val snapshot = LyricsState.snapshot
+        val lyrics = snapshot.lyrics?.takeIf {
+            snapshot.key?.let { TrackPrefs.key(it.first, it.second, it.third) } == key && it.synced && !it.isEmpty
+        }
+        val export = stored?.takeUnless { it.startsWith(LocalLyrics.PLAIN_HEADER) } ?: lyrics?.let { LrcWriter.write(it.lines.map { line -> line.text }, it.lines.map { line -> line.timeMs }) }
+        val actions = mutableListOf(R.string.lrc_import)
+        if (export != null) actions += R.string.lrc_export
+        if (stored != null) actions += R.string.lrc_remove
+        MaterialAlertDialogBuilder(this).setTitle(R.string.local_lyrics)
+            .setItems(actions.map { getString(it) }.toTypedArray()) { _, index ->
+                when (actions[index]) {
+                    R.string.lrc_import -> MaterialAlertDialogBuilder(this)
+                        .setTitle(R.string.lrc_import).setMessage(R.string.lrc_import_hint)
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .setPositiveButton(android.R.string.ok) { _, _ ->
+                            importKey = key
+                            importDocument.launch(arrayOf("*/*"))
+                        }.show()
+                    R.string.lrc_export -> {
+                        if (export != null) io.execute {
+                            val result = runCatching {
+                                java.io.File.createTempFile("lyrics-export-", ".lrc", cacheDir).also { it.writeText(export, Charsets.UTF_8) }
+                            }
+                            main.post {
+                                if (isDestroyed || isFinishing) { result.getOrNull()?.delete(); return@post }
+                                result.onSuccess { file ->
+                                    exportFile = file.name
+                                    exportDocument.launch("lyrics.lrc")
+                                }.onFailure { documentMessage(R.string.lrc_export_error) }
+                            }
+                        }
+                    }
+                    R.string.lrc_remove -> MaterialAlertDialogBuilder(this)
+                        .setTitle(R.string.lrc_remove).setMessage(R.string.lrc_remove_hint)
+                        .setNegativeButton(android.R.string.cancel, null)
+                        .setPositiveButton(android.R.string.ok) { _, _ ->
+                            local.remove(key)
+                            prefs.bumpTrackPrefs()
+                            documentMessage(R.string.lrc_removed)
+                        }.show()
+                }
+            }.show()
+    }
+
+    override fun onDestroy() {
+        main.removeCallbacksAndMessages(null)
+        io.shutdown()
+        super.onDestroy()
+    }
+
     private fun isListenerEnabled() =
         Settings.Secure.getString(contentResolver, "enabled_notification_listeners")?.contains(packageName) == true
 
     // ---- lyrics sources ----------------------------------------------------------------------
 
     private fun bindLyrics() {
+        findViewById<View>(R.id.btnRecentSongs).setOnClickListener { io.execute {
+            val songs = SongArchive(this).recent()
+            main.post { if (!isDestroyed && !isFinishing) RecentSongsUi.show(this, songs) }
+        } }
         dropdown(R.id.srcFirst, listOf(
             LrcLib.ID to getString(R.string.source_lrclib),
             Lyrically.ID to getString(R.string.source_lyrically),
@@ -367,6 +580,7 @@ class MainActivity : AppCompatActivity() {
     // ---- AI ----------------------------------------------------------------------------------
 
     private fun bindAi() {
+        findViewById<View>(R.id.btnLanguageSettings).setOnClickListener { LanguageSettingsUi.select(this) { refreshPreview() } }
         val provider = findViewById<AutoCompleteTextView>(R.id.provider)
         val baseUrl = findViewById<TextInputEditText>(R.id.baseUrl)
         val apiKey = findViewById<TextInputEditText>(R.id.apiKey)
@@ -419,6 +633,7 @@ class MainActivity : AppCompatActivity() {
             io.execute {
                 val result = runCatching { Ai.listModels(cfg) }
                 runOnUiThread {
+                    if (isDestroyed || isFinishing) return@runOnUiThread
                     btn.isEnabled = true
                     btn.setText(R.string.load_models)
                     result.onSuccess { ids ->

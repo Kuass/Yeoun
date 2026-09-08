@@ -59,6 +59,9 @@
             android:layout_width="match_parent" android:layout_height="wrap_content"
             android:orientation="vertical" android:visibility="gone">
 
+        <com.google.android.material.button.MaterialButton android:id="@+id/btnPresets"
+            style="@style/Widget.Material3.Button.TonalButton" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="@string/settings_presets" />
         <!-- 가사 창 -->
         <TextView style="@style/Eyebrow" android:text="@string/section_display" />
         <com.google.android.material.card.MaterialCardView style="@style/Card">
@@ -85,12 +88,37 @@
                     android:stepSize="1" android:valueFrom="0" android:valueTo="5" />
 
                 <LinearLayout style="@style/SliderHead">
+                    <TextView style="@style/SliderTitle" android:text="@string/translation_prev" />
+                    <TextView android:id="@+id/valueTranslationPrev" style="@style/SliderValue" />
+                </LinearLayout>
+                <com.google.android.material.slider.Slider android:id="@+id/sliderTranslationPrev" android:contentDescription="@string/translation_prev" style="@style/Slider"
+                    android:stepSize="1" android:valueFrom="0" android:valueTo="3" />
+                <LinearLayout style="@style/SliderHead">
+                    <TextView style="@style/SliderTitle" android:text="@string/translation_next" />
+                    <TextView android:id="@+id/valueTranslationNext" style="@style/SliderValue" />
+                </LinearLayout>
+                <com.google.android.material.slider.Slider android:id="@+id/sliderTranslationNext" android:contentDescription="@string/translation_next" style="@style/Slider"
+                    android:stepSize="1" android:valueFrom="0" android:valueTo="5" />
+                <LinearLayout style="@style/SliderHead">
+                    <TextView style="@style/SliderTitle" android:text="@string/phonetic_prev" />
+                    <TextView android:id="@+id/valuePhoneticPrev" style="@style/SliderValue" />
+                </LinearLayout>
+                <com.google.android.material.slider.Slider android:id="@+id/sliderPhoneticPrev" android:contentDescription="@string/phonetic_prev" style="@style/Slider"
+                    android:stepSize="1" android:valueFrom="0" android:valueTo="3" />
+                <LinearLayout style="@style/SliderHead">
+                    <TextView style="@style/SliderTitle" android:text="@string/phonetic_next" />
+                    <TextView android:id="@+id/valuePhoneticNext" style="@style/SliderValue" />
+                </LinearLayout>
+                <com.google.android.material.slider.Slider android:id="@+id/sliderPhoneticNext" android:contentDescription="@string/phonetic_next" style="@style/Slider"
+                    android:stepSize="1" android:valueFrom="0" android:valueTo="5" />
+                <LinearLayout style="@style/SliderHead">
                     <TextView style="@style/SliderTitle" android:text="@string/background" />
                     <TextView android:id="@+id/valueBg" style="@style/SliderValue" />
                 </LinearLayout>
                 <com.google.android.material.slider.Slider android:id="@+id/sliderBg" android:contentDescription="@string/background" style="@style/Slider"
                     android:stepSize="5" android:valueFrom="0" android:valueTo="100" />
 
+                <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchInlinePronunciation" style="@style/Switch" android:text="@string/inline_pronunciation" />
                 <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchAnimate" style="@style/Switch"
                     android:text="@string/animate" />
                 <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchKaraoke" style="@style/Switch"
@@ -133,6 +161,29 @@
                 </com.google.android.material.textfield.TextInputLayout>
                 <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchPeek" style="@style/Switch"
                     android:text="@string/peek_overlay" />
+                <com.google.android.material.textfield.TextInputLayout style="@style/Field.Dropdown" android:hint="@string/track_source">
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/trackSource"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="none" android:hint="@string/track_source" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <TextView style="@style/RowDesc" android:text="@string/track_source_hint" />
+                <com.google.android.material.textfield.TextInputLayout style="@style/Field.Dropdown" android:hint="@string/source_language_override">
+                    <com.google.android.material.textfield.MaterialAutoCompleteTextView android:id="@+id/sourceLanguage"
+                        android:layout_width="match_parent" android:layout_height="wrap_content" android:inputType="none" android:hint="@string/source_language_override" />
+                </com.google.android.material.textfield.TextInputLayout>
+                <TextView android:id="@+id/detectedLanguages" style="@style/RowDesc" />
+                <TextView android:id="@+id/extrasProgress" style="@style/RowDesc" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnRetryExtras" style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/extras_retry" android:enabled="false" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnLyricsSearch"
+                    style="@style/Widget.Material3.Button.TextButton" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="@string/lyrics_search" android:enabled="false" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnExtrasEditor"
+                    style="@style/Widget.Material3.Button.TextButton" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="@string/extras_editor" android:enabled="false" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnLocalLyrics"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="match_parent" android:layout_height="wrap_content" android:enabled="false"
+                    android:text="@string/local_lyrics" />
                 <com.google.android.material.button.MaterialButton android:id="@+id/btnSync"
                     style="@style/Widget.Material3.Button.TextButton"
                     android:layout_width="match_parent" android:layout_height="wrap_content"
@@ -147,6 +198,8 @@
         </com.google.android.material.card.MaterialCardView>
 
 
+        <com.google.android.material.button.MaterialButton android:id="@+id/btnRecentSongs" style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/recent_songs" />
         <!-- 전체 화면 -->
         <TextView style="@style/Eyebrow" android:text="@string/section_fullscreen" />
         <com.google.android.material.card.MaterialCardView style="@style/Card">
@@ -199,6 +252,10 @@
         <TextView style="@style/Eyebrow" android:text="@string/section_ai" />
         <com.google.android.material.card.MaterialCardView style="@style/Card">
             <LinearLayout style="@style/CardBody" android:paddingTop="12dp" android:paddingBottom="12dp">
+                <com.google.android.material.button.MaterialButton android:id="@+id/btnLanguageSettings"
+                    style="@style/Widget.Material3.Button.TonalButton" android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:text="@string/language_settings" />
+                <TextView style="@style/RowDesc" android:text="@string/language_global_hint" />
                 <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchTranslate" style="@style/Switch"
                     android:text="@string/pref_translate" />
                 <com.google.android.material.materialswitch.MaterialSwitch android:id="@+id/switchPhonetic" style="@style/Switch"
@@ -289,6 +346,10 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
+        <com.google.android.material.button.MaterialButton android:id="@+id/btnBackup" style="@style/Widget.Material3.Button.TonalButton"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/backup_save" />
+        <com.google.android.material.button.MaterialButton android:id="@+id/btnRestore" style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="match_parent" android:layout_height="wrap_content" android:text="@string/backup_restore" />
         <!-- 앱 -->
         <TextView style="@style/Eyebrow" android:text="@string/section_app" />
         <com.google.android.material.card.MaterialCardView style="@style/Card">

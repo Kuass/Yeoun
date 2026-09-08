@@ -100,13 +100,23 @@
             app:iconTint="@color/paper" />
     </LinearLayout>
 
-    <dev.kuass.ivlyrics.LyricsView
-        android:id="@+id/fsLyrics"
+    <dev.kuass.ivlyrics.ManualScrollView
+        android:id="@+id/fsLyricsScroll"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_gravity="center"
-        android:layout_marginStart="12dp"
-        android:layout_marginEnd="12dp" />
+        android:layout_height="match_parent"
+        android:layout_marginTop="96dp"
+        android:layout_marginBottom="170dp"
+        android:fillViewport="true">
+        <FrameLayout android:layout_width="match_parent" android:layout_height="wrap_content">
+            <dev.kuass.ivlyrics.LyricsView
+                android:id="@+id/fsLyrics"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="12dp" />
+        </FrameLayout>
+    </dev.kuass.ivlyrics.ManualScrollView>
 
     <!-- Bottom: progress and transport -->
     <LinearLayout
@@ -161,8 +171,12 @@
                 style="@style/Widget.Material3.Button.IconButton.Filled"
                 android:layout_width="80dp"
                 android:layout_height="80dp"
+                android:insetLeft="0dp"
+                android:insetRight="0dp"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
+                android:padding="0dp"
+                android:gravity="center"
                 android:minWidth="0dp"
                 android:minHeight="0dp"
                 android:layout_marginStart="20dp"
@@ -171,6 +185,8 @@
                 app:backgroundTint="@color/amber"
                 app:icon="@drawable/ic_play"
                 app:iconSize="40dp"
+                app:iconPadding="0dp"
+                app:iconGravity="textStart"
                 app:iconTint="@color/amber_deep" />
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/fsNext"

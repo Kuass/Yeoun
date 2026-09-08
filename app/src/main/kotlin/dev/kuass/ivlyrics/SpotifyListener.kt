@@ -25,6 +25,9 @@ class SpotifyListener : NotificationListenerService() {
     private val io = Executors.newSingleThreadExecutor()
     private val ai = Executors.newSingleThreadExecutor() // slow AI calls must never delay the next track's lyrics fetch
     private val prefs by lazy { Prefs(this) }
+    private val languagePrefs by lazy { LanguagePrefs(this) }
+    private val edits by lazy { LyricsEdits(this) }
+    private val archive by lazy { SongArchive(this) }
     private val cache by lazy { LyricsCache(this) }
     private val community by lazy { CommunitySync(this) }
     private val trackPrefs by lazy { TrackPrefs(this) }
@@ -32,7 +35,10 @@ class SpotifyListener : NotificationListenerService() {
     private var current: Triple<Lyrics, String, String>? = null // lyrics, title, artist of the shown track
     private var currentLang: String? = null
     private var currentLocal: String? = null
+    private var currentSource: String? = null
+    private var currentSourceLanguage: String? = null
     private val requests = LyricsRequestGate()
+    private val loads = LyricsRequestGate()
     private var controller: MediaController? = null
     private var overlay: LyricsOverlay? = null
     private var trackKey: Triple<String, String, Long>? = null
@@ -42,9 +48,17 @@ class SpotifyListener : NotificationListenerService() {
 
     private val sessionsChanged = MediaSessionManager.OnActiveSessionsChangedListener { attach(it) }
     private val prefsChanged = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        when (key) {
+        if (key?.startsWith(LanguagePrefs.PREFIX) == true) refreshEnrichment()
+        else when (key) {
+            Prefs.TRANSLATE, Prefs.PHONETIC, Prefs.TARGET_LANG, Prefs.STYLE, Prefs.INSTRUCTION,
+            Prefs.NOTATION, Prefs.BASE_URL, Prefs.API_KEY, Prefs.MODEL, Prefs.EXTRAS_VERSION -> refreshEnrichment()
             Prefs.UI_OPEN -> updateVisibility()
             Prefs.TRACK_PREFS_VERSION -> applyTrackPrefs()
+            Prefs.SRC_FIRST, Prefs.SRC_LRCLIB, Prefs.SRC_LYRICALLY, Prefs.SRC_LYRICSPLUS,
+            Prefs.SRC_COMMUNITY, Prefs.KARAOKE -> {
+                overlay?.applyPrefs()
+                trackKey?.let { loadLyrics(it, controller?.metadata) }
+            }
             else -> overlay?.applyPrefs()
         }
     }
@@ -57,21 +71,24 @@ class SpotifyListener : NotificationListenerService() {
         LyricsState.update { it.copy(trackOffsetMs = entry.offsetMs) }
         val localNow = localLyrics.get(TrackPrefs.key(key.first, key.second, key.third))
         val localChanged = localNow != currentLocal
-        val languageChanged = entry.lang != currentLang
+        val languageChanged = entry.lang != currentLang || entry.sourceLanguage != currentSourceLanguage
+        currentSourceLanguage = entry.sourceLanguage
+        val sourceChanged = entry.source != currentSource
+        currentSource = entry.source
         currentLocal = localNow
         currentLang = entry.lang
-        if (localChanged) {
+        if (localChanged || sourceChanged) {
             loadLyrics(key, controller?.metadata)
-        } else if (languageChanged) {
-            val stored = current
-            if (stored == null) loadLyrics(key, controller?.metadata)
-            else {
-                val ticket = requests.begin(key)
-                overlay?.clearExtras()
-                LyricsState.update { it.copy(translation = null, phonetic = null) }
-                queueEnrichment(ticket, stored.first, stored.second, stored.third)
-            }
-        }
+        } else if (languageChanged) refreshEnrichment()
+    }
+
+    private fun refreshEnrichment() {
+        val key = trackKey ?: return
+        val stored = current ?: return // The pending provider load will capture current preferences when it publishes.
+        val ticket = requests.begin(key)
+        overlay?.clearExtras()
+        LyricsState.update { it.copy(translation = null, phonetic = null) }
+        queueEnrichment(ticket, stored.first, stored.second, stored.third)
     }
 
     private val callback = object : MediaController.Callback() {
@@ -106,7 +123,7 @@ class SpotifyListener : NotificationListenerService() {
         controller?.unregisterCallback(callback)
         controller = spotify
         if (spotify == null) {
-            requests.invalidate()
+            requests.invalidate(); loads.invalidate()
             current = null
             LyricsState.update { LyricsState.Snapshot() }
             trackKey = null
@@ -129,7 +146,10 @@ class SpotifyListener : NotificationListenerService() {
         trackKey = key
         val entry = trackPrefs.get(TrackPrefs.key(title, artist, durationSec))
         currentLang = entry.lang
+        currentSource = entry.source
+        currentSourceLanguage = entry.sourceLanguage
         currentLocal = localLyrics.get(TrackPrefs.key(title, artist, durationSec))
+        overlay?.setTrackKey(TrackPrefs.key(title, artist, durationSec))
         overlay?.setTrackOffset(entry.offsetMs)
         LyricsState.update { LyricsState.Snapshot(key, title, artist, null, null, null, entry.offsetMs) }
         loadLyrics(key, md)
@@ -138,33 +158,45 @@ class SpotifyListener : NotificationListenerService() {
 
     /** Each reload invalidates both provider and AI responses from all earlier revisions. */
     private fun loadLyrics(key: Triple<String, String, Long>, md: MediaMetadata?) {
+        val loadTicket = loads.begin(key)
         val ticket = requests.begin(key)
         val (title, artist, durationSec) = key
         current = null
         overlay?.setTrack(title)
-        LyricsState.update { it.copy(lyrics = null, translation = null, phonetic = null) }
-        val local = localLyrics.lyrics(TrackPrefs.key(title, artist, durationSec))
+        LyricsState.update { it.copy(lyrics = null, translation = null, phonetic = null, sourceLanguages = emptyList(), extrasKey = null, extrasProgress = null) }
+        val local = localLyrics.lyrics(TrackPrefs.key(title, artist, durationSec), durationSec)
         if (local != null) {
             publishLyrics(ticket, local)
+            io.execute { runCatching { archive.save(key, local) } }
             return
         }
         val trackId = md?.getString(MediaMetadata.METADATA_KEY_MEDIA_ID)?.removePrefix("spotify:track:")?.takeIf { it.matches(Regex("[A-Za-z0-9]{22}")) }
         val album = md?.getString(MediaMetadata.METADATA_KEY_ALBUM) ?: ""
-        val communityEnabled = prefs.srcCommunity
-        val order = prefs.sourceOrder
+        val selectedSource = trackPrefs.get(TrackPrefs.key(title, artist, durationSec)).source
+        val selection = LyricsSources.select(selectedSource, prefs.sourceOrder, prefs.srcCommunity)
         val karaoke = prefs.karaoke
         val deferRomanized = prefs.targetLang == "ko"
         io.execute {
-            if (!requests.accepts(ticket)) return@execute
-            val lyrics = (if (communityEnabled) community.lookup(trackId, title, artist, durationSec) else null)
-                ?: LyricsSources.fetch(order, title, artist, album, durationSec, karaoke, deferRomanized)
-            main.post { publishLyrics(ticket, lyrics) }
+            if (!loads.accepts(loadTicket)) return@execute
+            val cached = archive.get(key)?.takeIf { selection.acceptsCached(it.lyrics.source) }
+            if (cached != null) main.post { publishLyrics(ticket, cached.lyrics) }
+            val lyrics = runCatching {
+                (if (selection.community) community.lookup(trackId, title, artist, durationSec) else null)
+                    ?: LyricsSources.fetch(selection.order, title, artist, album, durationSec, karaoke, deferRomanized)
+            }.getOrDefault(Lyrics.NONE)
+            if (!loads.accepts(loadTicket)) return@execute
+            if (!lyrics.isEmpty) runCatching { archive.save(key, lyrics) }
+            else if (cached != null) return@execute
+            main.post {
+                if (loads.accepts(loadTicket)) publishLyrics(requests.begin(key), lyrics)
+            }
         }
     }
 
     private fun publishLyrics(ticket: LyricsRequestGate.Ticket, lyrics: Lyrics) {
         if (!requests.accepts(ticket)) return
         val (title, artist) = ticket.key
+        overlay?.clearExtras()
         overlay?.setLyrics(lyrics)
         current = Triple(lyrics, title, artist)
         LyricsState.update { it.copy(lyrics = lyrics, translation = null, phonetic = null) }
@@ -172,34 +204,54 @@ class SpotifyListener : NotificationListenerService() {
     }
 
     private fun queueEnrichment(ticket: LyricsRequestGate.Ticket, lyrics: Lyrics, title: String, artist: String) {
-        val cfg = prefs.aiConfig ?: return
+        val cfg = prefs.aiConfig
         val opt = prefs.aiOptions.let { base -> currentLang?.let { base.copy(target = Lang.target(it)) } ?: base }
-        val translate = prefs.translate
-        val phonetic = prefs.phonetic
-        ai.execute { enrich(ticket, lyrics, title, artist, cfg, opt, translate, phonetic) }
-    }
-
-    /** Uses immutable settings captured when this revision was queued. */
-    private fun enrich(ticket: LyricsRequestGate.Ticket, lyrics: Lyrics, title: String, artist: String,
-                       cfg: Ai.Config, opt: Ai.Options, wantTranslate: Boolean, wantPhonetic: Boolean) {
-        if (!requests.accepts(ticket)) return
-        val key = ticket.key
-        if (!wantTranslate && !wantPhonetic) return
         val texts = lyrics.lines.map { it.text }
-        if (Lang.isAlreadyIn(texts, opt.target)) return
-        val cacheKey = "$key|${lyrics.synced}|${texts.hashCode()}|${opt.fingerprint}"
-        val hit = cache.get(cacheKey)
-        if (hit != null) {
-            main.post { if (requests.accepts(ticket)) { overlay?.setExtras(hit.translation, hit.phonetic); LyricsState.update { it.copy(translation = hit.translation ?: it.translation, phonetic = hit.phonetic ?: it.phonetic) } } }
-            if ((hit.translation != null || !wantTranslate) && (hit.phonetic != null || !wantPhonetic)) return
+        val languages = SourceLanguage.detectLines(texts, currentSourceLanguage)
+        val decisions = languages.map { LanguageDisplay.resolve(it, opt.target.code, languagePrefs.get(it)) }
+        val translate = decisions.map { it.translation && prefs.translate }
+        val phonetic = decisions.map { it.phonetic && prefs.phonetic }
+        val pending = languages.indices.filter { decisions[it].needsChoice }.map { languages[it] }.distinct()
+        overlay?.setLanguagePrompt(pending.firstOrNull())
+        val cacheKey = ExtrasPolicy.key(ticket.key, texts, opt)
+        LyricsState.update { it.copy(sourceLanguages = languages, extrasKey = cacheKey) }
+        ai.execute {
+            if (!requests.accepts(ticket)) return@execute
+            val hit = cache.get(cacheKey)
+            val corrections = edits.get(cacheKey)
+            fun publish(result: LyricsCache.Extras, finished: Boolean = false) {
+                val visible = corrections.apply(result, texts.size)
+                val tr = ExtrasPolicy.visible(visible.translation, translate)
+                val ph = ExtrasPolicy.visible(visible.phonetic, phonetic)
+                val progress = ExtrasProgress.Status(
+                    ExtrasProgress.channel(translate, result.translation, corrections.translation.keys, cfg != null, finished, pending.isNotEmpty()),
+                    ExtrasProgress.channel(phonetic, result.phonetic, corrections.phonetic.keys, cfg != null, finished, pending.isNotEmpty()))
+                main.post {
+                    if (requests.accepts(ticket)) {
+                        overlay?.setExtrasProgress(progress)
+                        overlay?.clearExtras()
+                        overlay?.setExtras(tr, ph)
+                        LyricsState.update { it.copy(translation = tr, phonetic = ph, extrasProgress = progress) }
+                    }
+                }
+            }
+            publish(hit ?: LyricsCache.Extras(null, null))
+            if (cfg == null || !requests.accepts(ticket)) return@execute
+            val translationInput = ExtrasPolicy.missing(texts, translate.mapIndexed { i, on -> on && i !in corrections.translation }, hit?.translation)
+            val translated = if (translationInput.any(String::isNotBlank)) Ai.translate(cfg, translationInput, title, artist, opt) else null
+            val translation = ExtrasPolicy.merge(hit?.translation, translated, texts.size)
+            if (!requests.accepts(ticket)) return@execute
+            if (translated != null) {
+                cache.put(cacheKey, LyricsCache.Extras(translation, hit?.phonetic))
+                publish(LyricsCache.Extras(translation, hit?.phonetic))
+            }
+            val phoneticInput = ExtrasPolicy.missing(texts, phonetic.mapIndexed { i, on -> on && i !in corrections.phonetic }, hit?.phonetic)
+            val pronounced = if (phoneticInput.any(String::isNotBlank)) Ai.pronounce(cfg, phoneticInput, opt) else null
+            val result = LyricsCache.Extras(translation, ExtrasPolicy.merge(hit?.phonetic, pronounced, texts.size))
+            if (!requests.accepts(ticket)) return@execute
+            if (translated != null || pronounced != null) cache.put(cacheKey, result)
+            publish(result, finished = true)
         }
-        if (!requests.accepts(ticket)) return
-        val translation = hit?.translation ?: if (wantTranslate) Ai.translate(cfg, texts, title, artist, opt) else null
-        if (translation != null) main.post { if (requests.accepts(ticket)) { overlay?.setExtras(translation, null); LyricsState.update { it.copy(translation = translation) } } }
-        if (!requests.accepts(ticket)) return
-        val phonetic = hit?.phonetic ?: if (wantPhonetic) Ai.pronounce(cfg, texts, opt) else null
-        if (phonetic != null) main.post { if (requests.accepts(ticket)) { overlay?.setExtras(null, phonetic); LyricsState.update { it.copy(phonetic = phonetic) } } }
-        if (translation != null || phonetic != null) cache.put(cacheKey, LyricsCache.Extras(translation, phonetic))
     }
 
     private fun onState(state: PlaybackState?) {
