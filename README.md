@@ -14,6 +14,10 @@ Yeoun is an Android companion for Spotify that puts synchronized lyrics above yo
   <img src="docs/assets/screen-en.png" width="280" alt="Yeoun in English, with a live lyrics preview and display settings" />
 </p>
 
+Local LRC files, manual LRCLIB search, per-song source/language selection, and line-level translation/pronunciation editing are available under **Lyrics sources → Now playing**. Display settings include named presets and separate surrounding-line ranges for translation and pronunciation. See [feature parity](docs/FEATURE_PARITY.md) for implemented and pending desktop features.
+
+Word-associated pronunciation, generation progress/retry, floating quick controls, manual-scroll recovery, backup/restore, and recent/offline lyrics are now available. See [Reading tools](docs/READING_TOOLS.md) for behavior and limits.
+
 ## What you can do
 
 - **Follow the music.** Display synchronized lyrics in a movable overlay. Shared lines move into place instead of disappearing between transitions.
@@ -70,7 +74,7 @@ The overlay is normally hidden while Yeoun's settings screen is open; the Now pl
 
 Open **Translate**, choose a service or enter a custom server address ending in `/v1`, and enter your own API key and model. You can load the model list if the endpoint supports it.
 
-Choose a target language and enable translation, pronunciation, or both. Songs detected as already being in the target language are skipped. Results are cached on the device. Provider usage charges may apply.
+Choose a target language and enable translation, pronunciation, or both. Choose output separately per source language under **Language display settings**. Unconfigured foreign languages show choices below the floating lyrics; target-language lines default to original only. Results are cached on the device. Provider usage charges may apply.
 
 ## Lyrics and timing
 
