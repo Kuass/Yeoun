@@ -11,18 +11,18 @@ class TrackPrefs(ctx: Context) {
         fun key(title: String, artist: String, durationSec: Long) = "${title.length}:$title|${artist.length}:$artist|$durationSec"
     }
 
-    data class Entry(val offsetMs: Int = 0, val lang: String? = null, val videoId: String? = null) {
-        val isDefault get() = offsetMs == 0 && lang == null && videoId == null
+    data class Entry(val offsetMs: Int = 0, val lang: String? = null, val videoId: String? = null, val source: String? = null, val sourceLanguage: String? = null) {
+        val isDefault get() = offsetMs == 0 && lang == null && videoId == null && source == null && sourceLanguage == null
     }
 
     private val sp = ctx.getSharedPreferences(NAME, Context.MODE_PRIVATE)
 
     fun get(key: String): Entry = sp.getString(key, null)?.let { raw ->
-        runCatching { JSONObject(raw) }.getOrNull()?.let { Entry(it.optInt("offset"), it.optString("lang").takeIf { l -> l.isNotEmpty() }, it.optString("video").takeIf { v -> v.isNotEmpty() }) }
+        runCatching { JSONObject(raw) }.getOrNull()?.let { Entry(it.optInt("offset"), it.optString("lang").takeIf { l -> l.isNotEmpty() }, it.optString("video").takeIf { v -> v.isNotEmpty() }, it.optString("source").takeIf { s -> s in LyricsSources.ALL }, it.optString("sourceLanguage").takeIf { s -> s in SourceLanguage.CODES }) }
     } ?: Entry()
 
     fun set(key: String, entry: Entry) {
         if (entry.isDefault) sp.edit().remove(key).apply()
-        else sp.edit().putString(key, JSONObject().put("offset", entry.offsetMs).put("lang", entry.lang ?: "").put("video", entry.videoId ?: "").toString()).apply()
+        else sp.edit().putString(key, JSONObject().put("offset", entry.offsetMs).put("lang", entry.lang ?: "").put("video", entry.videoId ?: "").put("source", entry.source ?: "").put("sourceLanguage", entry.sourceLanguage ?: "").toString()).apply()
     }
 }

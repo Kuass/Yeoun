@@ -17,7 +17,11 @@ object Lrc {
                 val tags = TAG.findAll(raw).toList()
                 if (tags.isEmpty()) return@flatMap emptySequence()
                 val text = raw.substring(tags.last().range.last + 1).trim()
-                tags.asSequence().map { LrcLine(maxOf(0L, toMs(it) - offset), text) }
+                tags.asSequence().mapNotNull { tag ->
+                    val time = toMs(tag) ?: return@mapNotNull null
+                    val shifted = if (offset < 0 && time > Long.MAX_VALUE + offset) Long.MAX_VALUE else maxOf(0L, time - offset)
+                    LrcLine(shifted, text)
+                }
             }
             .sortedBy { it.timeMs }
             .toList()
@@ -53,9 +57,10 @@ object Lrc {
     fun sungChars(syllables: List<Syl>, posMs: Long): Int =
         syllables.takeWhile { it.startMs <= posMs }.sumOf { it.text.length }
 
-    private fun toMs(m: MatchResult): Long {
-        val min = m.groupValues[1].toLong()
+    private fun toMs(m: MatchResult): Long? {
+        val min = m.groupValues[1].toLongOrNull() ?: return null
         val sec = m.groupValues[2].toLong()
+        if (sec >= 60 || min > (Long.MAX_VALUE - 59999) / 60000) return null
         val frac = m.groupValues[3]
         val ms = when (frac.length) {
             0 -> 0L

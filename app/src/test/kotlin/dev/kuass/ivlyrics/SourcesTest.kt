@@ -7,6 +7,15 @@ import org.junit.Assert.assertFalse
 import org.junit.Test
 
 class SourcesTest {
+    @org.junit.Test fun `track selection overrides disabled sources and community without altering defaults`() {
+        val defaults = listOf(LyricsPlus.ID, LrcLib.ID)
+        val explicit = LyricsSources.select(Lyrically.ID, defaults, true)
+        org.junit.Assert.assertEquals(listOf(Lyrically.ID), explicit.order)
+        org.junit.Assert.assertFalse(explicit.community)
+        org.junit.Assert.assertEquals(LyricsSources.Selection(defaults, true), LyricsSources.select(null, defaults, true))
+        org.junit.Assert.assertEquals(LyricsSources.Selection(defaults, false), LyricsSources.select("unknown", defaults, false))
+    }
+
     @Test
     fun `order puts the preferred provider first and drops disabled ones`() {
         val all = setOf("lrclib", "lyrically", "lyricsplus")

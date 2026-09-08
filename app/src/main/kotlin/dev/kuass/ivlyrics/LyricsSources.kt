@@ -4,6 +4,14 @@ package dev.kuass.ivlyrics
 object LyricsSources {
     val ALL = listOf(LrcLib.ID, Lyrically.ID, LyricsPlus.ID)
 
+    data class Selection(val order: List<String>, val community: Boolean) {
+        fun acceptsCached(source: String) = source in order || (community && source == CommunitySync.ID)
+    }
+
+    fun select(override: String?, globalOrder: List<String>, community: Boolean): Selection =
+        if (override in ALL) Selection(listOf(requireNotNull(override)), false)
+        else Selection(globalOrder, community)
+
     fun order(first: String, enabled: Set<String>): List<String> =
         (listOf(first) + ALL.filter { it != first }).filter { it in enabled && it in ALL }
 

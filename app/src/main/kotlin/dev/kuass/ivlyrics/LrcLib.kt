@@ -20,12 +20,30 @@ object LrcLib {
 
     data class Candidate(val durationSec: Long, val synced: String?, val plain: String?)
 
+    data class SearchHit(val id: Long, val title: String, val artist: String, val album: String, val candidate: Candidate)
+
+    fun searchQuery(query: String): List<SearchHit> {
+        require(query.isNotBlank())
+        return parseSearch(Http.get("$BASE/search?q=${Http.enc(query.trim())}") ?: "[]")
+    }
+
+    fun parseSearch(body: String): List<SearchHit> {
+        val array = JSONArray(body)
+        return (0 until minOf(array.length(), 100)).mapNotNull { i ->
+            val row = array.optJSONObject(i) ?: return@mapNotNull null
+            val value = candidate(row)
+            if (value.synced == null && value.plain == null) return@mapNotNull null
+            SearchHit(row.optLong("id"), row.optString("trackName"), row.optString("artistName"), row.optString("albumName"), value)
+        }
+    }
+
     fun fetch(title: String, artist: String, album: String, durationSec: Long): Lyrics = try {
         val exact = Http.get("$BASE/get?" + query(title, artist, album, durationSec))?.let { candidate(JSONObject(it)) }
+        val searched = if (exact?.synced == null) search(title, artist, durationSec) else null
         val best = exact?.takeIf { it.synced != null }
-            ?: search(title, artist, durationSec)?.takeIf { it.synced != null }
+            ?: searched?.takeIf { it.synced != null }
             ?: exact?.takeIf { it.plain != null }
-            ?: search(title, artist, durationSec)
+            ?: searched
         toLyrics(best, durationSec)
     } catch (e: Exception) {
         // IOException from the network, JSONException from a non-JSON 200 body (CDN/maintenance page).
@@ -61,8 +79,8 @@ object LrcLib {
 
     private fun candidate(o: JSONObject) = Candidate(
         o.optDouble("duration", 0.0).toLong(),
-        o.optString("syncedLyrics").takeIf { it.isNotBlank() },
-        o.optString("plainLyrics").takeIf { it.isNotBlank() && !o.optBoolean("instrumental") },
+        o.optString("syncedLyrics").takeIf { !o.isNull("syncedLyrics") && it.isNotBlank() && Lrc.parse(it).any { line -> line.text.isNotBlank() } },
+        o.optString("plainLyrics").takeIf { !o.isNull("plainLyrics") && it.isNotBlank() && !o.optBoolean("instrumental") },
     )
 
     private fun query(title: String, artist: String, album: String, durationSec: Long) =

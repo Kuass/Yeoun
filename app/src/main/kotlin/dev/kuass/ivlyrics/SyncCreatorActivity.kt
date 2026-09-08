@@ -76,12 +76,12 @@ class SyncCreatorActivity : AppCompatActivity() {
         val snap = LyricsState.snapshot
         draft.selectTrack(snap.key?.let { TrackPrefs.key(it.first, it.second, it.third) })
         findViewById<TextView>(R.id.scTitle).text = listOf(snap.title, snap.artist).filter { it.isNotBlank() }.joinToString(" · ")
-        val existing = key?.let { local.get(it) }?.let(Lrc::parse)
-        val source = existing?.map { it.text } ?: snap.lyrics?.lines?.map { it.text }?.filter { it.isNotBlank() } ?: emptyList()
+        val existing = key?.let { local.lyrics(it, snap.key?.third ?: 0) }
+        val source = existing?.lines?.map { it.text } ?: snap.lyrics?.lines?.map { it.text }?.filter { it.isNotBlank() } ?: emptyList()
         val restored = savedInstanceState?.takeIf { it.getString("draft_key") == key }
         val restoredLines = restored?.getStringArrayList("draft_lines")
         val restoredTimes = restored?.getLongArray("draft_times")?.map { if (it < 0) null else it }
-        setLines(restoredLines ?: source, restoredTimes ?: existing?.map { it.timeMs })
+        setLines(restoredLines ?: source, restoredTimes ?: existing?.takeIf { it.synced }?.lines?.map { it.timeMs })
         restored?.let { draft.select(it.getInt("draft_cursor")); refresh() }
         findViewById<TextInputEditText>(R.id.scPaste).visibility = if (lines.isEmpty()) View.VISIBLE else View.GONE
         findViewById<MaterialButton>(R.id.scUsePaste).apply {
@@ -167,7 +167,7 @@ class SyncCreatorActivity : AppCompatActivity() {
         findViewById<TextInputEditText>(R.id.scPaste).text?.clear()
         showPaste(true)
         findViewById<TextView>(R.id.scTitle).text = listOf(title, artist).filter { it.isNotBlank() }.joinToString(" · ")
-        local.get(k)?.let(Lrc::parse)?.takeIf { it.isNotEmpty() }?.let { setLines(it.map { l -> l.text }, it.map { l -> l.timeMs }); showPaste(false) }
+        local.lyrics(k, md.getLong(MediaMetadata.METADATA_KEY_DURATION) / 1000)?.let { setLines(it.lines.map { l -> l.text }, it.takeIf { l -> l.synced }?.lines?.map { l -> l.timeMs }); showPaste(false) }
             ?: stateListener(LyricsState.snapshot)
     }
 
