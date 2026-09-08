@@ -18,6 +18,7 @@ android {
         applicationId = "dev.kuass.ivlyrics"
         minSdk = 26
         targetSdk = 36
+        testInstrumentationRunner = "dev.kuass.ivlyrics.QualityInstrumentation"
         versionCode = 2
         versionName = "0.3.0"
     }
