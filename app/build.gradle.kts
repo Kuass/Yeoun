@@ -19,8 +19,8 @@ android {
         minSdk = 26
         targetSdk = 36
         testInstrumentationRunner = "dev.kuass.ivlyrics.QualityInstrumentation"
-        versionCode = 2
-        versionName = "0.3.0"
+        versionCode = 3
+        versionName = "0.4.0"
     }
 
     signingConfigs {

@@ -7,7 +7,7 @@ import java.net.URLEncoder
 
 /** Tiny GET helper shared by the lyrics providers. Returns null on 404. */
 object Http {
-    const val UA = "Yeoun-Android/0.3.0"
+    const val UA = "Yeoun-Android/0.4.0"
 
     fun get(url: String, timeoutMs: Int = 8000, headers: Map<String, String> = emptyMap(), nullOn: Set<Int> = setOf(404)): String? {
         val conn = URL(url).openConnection() as HttpURLConnection
