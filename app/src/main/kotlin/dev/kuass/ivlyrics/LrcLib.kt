@@ -37,18 +37,27 @@ object LrcLib {
         }
     }
 
-    fun fetch(title: String, artist: String, album: String, durationSec: Long): Lyrics = try {
-        val exact = Http.get("$BASE/get?" + query(title, artist, album, durationSec))?.let { candidate(JSONObject(it)) }
-        val searched = if (exact?.synced == null) search(title, artist, durationSec) else null
-        val best = exact?.takeIf { it.synced != null }
-            ?: searched?.takeIf { it.synced != null }
-            ?: exact?.takeIf { it.plain != null }
+    fun fetch(title: String, artist: String, album: String, durationSec: Long): Lyrics = toLyrics(resolve(
+        exact = { Http.get("$BASE/get?" + query(title, artist, album, durationSec))?.let { candidate(JSONObject(it)) } },
+        search = { search(title, artist, durationSec) },
+        onFailure = { error -> Log.w(TAG, "lyrics lookup failed for $artist - $title", error) },
+    ), durationSec)
+
+    /** Each lookup may fail independently; an optional search must not discard usable exact lyrics. */
+    internal fun resolve(exact: () -> Candidate?, search: () -> Candidate?, onFailure: (Exception) -> Unit = {}): Candidate? {
+        fun attempt(lookup: () -> Candidate?): Candidate? = try {
+            lookup()
+        } catch (error: Exception) {
+            // Network errors and invalid provider JSON both leave the other lookup available.
+            onFailure(error)
+            null
+        }
+        val found = attempt(exact)
+        if (found?.synced != null) return found
+        val searched = attempt(search)
+        return searched?.takeIf { it.synced != null }
+            ?: found?.takeIf { it.plain != null }
             ?: searched
-        toLyrics(best, durationSec)
-    } catch (e: Exception) {
-        // IOException from the network, JSONException from a non-JSON 200 body (CDN/maintenance page).
-        Log.w(TAG, "lyrics fetch failed for $artist - $title", e)
-        Lyrics.NONE
     }
 
     fun toLyrics(c: Candidate?, durationSec: Long): Lyrics = when {
