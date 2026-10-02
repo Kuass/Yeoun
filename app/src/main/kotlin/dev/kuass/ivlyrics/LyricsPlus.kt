@@ -29,15 +29,22 @@ object LyricsPlus {
     }
 
     fun parse(body: String, durationSec: Long): Lyrics {
-        val arr = JSONObject(body).optJSONArray("lyrics") ?: return Lyrics.NONE
+        val document = JSONObject(body)
+        val arr = document.optJSONArray("lyrics") ?: return Lyrics.NONE
         val items = (0 until arr.length()).mapNotNull { arr.optJSONObject(it) }.mapNotNull { o ->
-            val time = if (o.has("time") && !o.isNull("time")) o.optDouble("time").toLong() else null
+            val time = o.milliseconds("time")
             val syl = o.optJSONArray("syllabus")?.let { sa ->
-                (0 until sa.length()).mapNotNull { sa.optJSONObject(it) }.mapNotNull { s ->
-                    val t = if (s.has("time") && !s.isNull("time")) s.optDouble("time").toLong() else return@mapNotNull null
+                val syllables = mutableListOf<Syl>()
+                for (i in 0 until sa.length()) {
+                    val s = sa.optJSONObject(i) ?: return@let null
                     val text = s.optString("text")
-                    if (text.isEmpty()) null else Syl(t, t + maxOf(1L, s.optDouble("duration", 1.0).toLong()), text)
+                    if (text.isEmpty()) continue
+                    // Partial karaoke metadata must never replace a complete line with only some of its words.
+                    val t = s.milliseconds("time") ?: return@let null
+                    val duration = (s.milliseconds("duration") ?: 1L).coerceAtLeast(1L)
+                    syllables += Syl(t, t + minOf(duration, Long.MAX_VALUE - t), text)
                 }
+                syllables
             }?.takeIf { it.isNotEmpty() }
             // Syllables define the text when present so highlight offsets stay exact; otherwise the plain line text.
             val fromSyl = syl?.let { Lrc.lineFromSyllables(time ?: 0L, it) }
@@ -45,8 +52,13 @@ object LyricsPlus {
             if (text.isEmpty()) null else Triple(time, text, fromSyl?.syllables)
         }
         if (items.isEmpty()) return Lyrics.NONE
-        val timed = items.filter { it.first != null }
-        return if (timed.size >= items.size / 2) Lyrics(timed.map { LrcLine(it.first!!, it.second, it.third) }.sortedBy { it.timeMs }, true, ID)
+        // Unsynced providers still emit numeric zero timestamps. Incomplete timing must retain all text,
+        // rather than dropping untimed lines or claiming that placeholder times are synchronized lyrics.
+        val synced = !document.optString("type").equals("None", ignoreCase = true) && items.all { it.first != null }
+        return if (synced) Lyrics(items.map { LrcLine(it.first!!, it.second, it.third) }.sortedBy { it.timeMs }, true, ID)
         else Lyrics(LrcLib.spread(items.joinToString("\n") { it.second }, durationSec), false, ID)
     }
+
+    private fun JSONObject.milliseconds(name: String): Long? = optDouble(name, Double.NaN)
+        .takeIf { it.isFinite() && it >= 0 && it < Long.MAX_VALUE.toDouble() }?.toLong()
 }
