@@ -173,8 +173,14 @@ class SyncCreatorActivity : AppCompatActivity() {
 
     private fun positionMs(): Long {
         val s = state ?: return 0
-        return if (s.state != PlaybackState.STATE_PLAYING) s.position
-            else s.position + ((SystemClock.elapsedRealtime() - s.lastPositionUpdateTime) * s.playbackSpeed).toLong()
+        // Timing authored here uses the raw session position, without display offsets.
+        return PlaybackPosition.at(
+            positionMs = s.position,
+            playing = s.state == PlaybackState.STATE_PLAYING,
+            lastPositionUpdateTimeMs = s.lastPositionUpdateTime,
+            playbackSpeed = s.playbackSpeed,
+            elapsedRealtimeMs = SystemClock.elapsedRealtime(),
+        )
     }
 
     private fun setLines(texts: List<String>, existingTimes: List<Long?>?) {

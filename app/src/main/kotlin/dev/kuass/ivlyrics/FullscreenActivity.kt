@@ -325,9 +325,15 @@ function now(){return (player&&player.getCurrentTime)?player.getCurrentTime():-1
 
     private fun positionMs(): Long {
         val s = state ?: return 0
-        val base = if (s.state != PlaybackState.STATE_PLAYING) s.position
-            else s.position + ((SystemClock.elapsedRealtime() - s.lastPositionUpdateTime) * s.playbackSpeed).toLong()
-        return base + prefs.offsetMs + snapshot.trackOffsetMs
+        return PlaybackPosition.at(
+            positionMs = s.position,
+            playing = s.state == PlaybackState.STATE_PLAYING,
+            lastPositionUpdateTimeMs = s.lastPositionUpdateTime,
+            playbackSpeed = s.playbackSpeed,
+            elapsedRealtimeMs = SystemClock.elapsedRealtime(),
+            offsetMs = prefs.offsetMs,
+            trackOffsetMs = snapshot.trackOffsetMs,
+        )
     }
 
     private fun scrollToCurrent() {
