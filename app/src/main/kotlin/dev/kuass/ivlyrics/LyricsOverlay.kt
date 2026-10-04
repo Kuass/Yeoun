@@ -280,9 +280,15 @@ class LyricsOverlay(context: Context, private val prefs: Prefs, private val onDi
 
     private fun positionMs(): Long {
         val s = state ?: return 0
-        val base = if (s.state != PlaybackState.STATE_PLAYING) s.position
-            else s.position + ((SystemClock.elapsedRealtime() - s.lastPositionUpdateTime) * s.playbackSpeed).toLong()
-        return base + offsetMs + trackOffsetMs
+        return PlaybackPosition.at(
+            positionMs = s.position,
+            playing = s.state == PlaybackState.STATE_PLAYING,
+            lastPositionUpdateTimeMs = s.lastPositionUpdateTime,
+            playbackSpeed = s.playbackSpeed,
+            elapsedRealtimeMs = SystemClock.elapsedRealtime(),
+            offsetMs = offsetMs,
+            trackOffsetMs = trackOffsetMs,
+        )
     }
 
     private fun followCurrent() {
