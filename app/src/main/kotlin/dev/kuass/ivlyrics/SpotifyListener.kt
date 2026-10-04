@@ -1,10 +1,8 @@
 package dev.kuass.ivlyrics
 
-import android.content.ComponentName
 import android.content.SharedPreferences
 import android.media.MediaMetadata
 import android.media.session.MediaController
-import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.os.Handler
 import android.os.Looper
@@ -17,7 +15,6 @@ import java.util.concurrent.Executors
  */
 class SpotifyListener : NotificationListenerService() {
     private companion object {
-        const val SPOTIFY = "com.spotify.music"
         val INACTIVE_STATES = setOf(PlaybackState.STATE_NONE, PlaybackState.STATE_STOPPED, PlaybackState.STATE_ERROR)
     }
 
@@ -39,14 +36,13 @@ class SpotifyListener : NotificationListenerService() {
     private var currentSourceLanguage: String? = null
     private val requests = LyricsRequestGate()
     private val loads = LyricsRequestGate()
-    private var controller: MediaController? = null
+    private val controller: MediaController? get() = sessions.controller
     private var overlay: LyricsOverlay? = null
     private var trackKey: Triple<String, String, Long>? = null
     private var dismissedFor: Triple<String, String, Long>? = null
     private var lastState: PlaybackState? = null
     private val hideOnPause = Runnable { overlay?.hide() }
 
-    private val sessionsChanged = MediaSessionManager.OnActiveSessionsChangedListener { attach(it) }
     private val prefsChanged = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
         if (key?.startsWith(LanguagePrefs.PREFIX) == true) refreshEnrichment()
         else when (key) {
@@ -91,37 +87,27 @@ class SpotifyListener : NotificationListenerService() {
         queueEnrichment(ticket, stored.first, stored.second, stored.third)
     }
 
-    private val callback = object : MediaController.Callback() {
-        override fun onMetadataChanged(metadata: MediaMetadata?) = onMetadata(metadata)
-        override fun onPlaybackStateChanged(state: PlaybackState?) = onState(state)
-        override fun onSessionDestroyed() = attach(emptyList())
+    private val sessions: SpotifySessionBinding by lazy {
+        SpotifySessionBinding(this, main, ::onSessionChanged, ::onMetadata, ::onState)
     }
 
     override fun onListenerConnected() {
         // requestRebind() from MainActivity can reconnect without a disconnect: drop the old session and overlay first.
-        attach(emptyList())
+        sessions.stop()
         overlay = LyricsOverlay(this, prefs, onDismissed = { dismissedFor = trackKey }, onTap = {
             startActivity(android.content.Intent(this, FullscreenActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
         })
         prefs.sp.registerOnSharedPreferenceChangeListener(prefsChanged)
-        val manager = getSystemService(MediaSessionManager::class.java)
-        val self = ComponentName(this, SpotifyListener::class.java)
-        manager.addOnActiveSessionsChangedListener(sessionsChanged, self, main)
-        attach(manager.getActiveSessions(self))
+        sessions.start()
     }
 
     override fun onListenerDisconnected() {
-        getSystemService(MediaSessionManager::class.java).removeOnActiveSessionsChangedListener(sessionsChanged)
         prefs.sp.unregisterOnSharedPreferenceChangeListener(prefsChanged)
-        attach(emptyList())
+        sessions.stop()
         overlay = null
     }
 
-    private fun attach(sessions: List<MediaController>?) {
-        val spotify = sessions?.firstOrNull { it.packageName == SPOTIFY }
-        if (spotify?.sessionToken == controller?.sessionToken) return
-        controller?.unregisterCallback(callback)
-        controller = spotify
+    private fun onSessionChanged(spotify: MediaController?) {
         if (spotify == null) {
             requests.invalidate(); loads.invalidate()
             current = null
@@ -132,7 +118,6 @@ class SpotifyListener : NotificationListenerService() {
             overlay?.hide()
             return
         }
-        spotify.registerCallback(callback, main)
         onMetadata(spotify.metadata)
         onState(spotify.playbackState)
     }

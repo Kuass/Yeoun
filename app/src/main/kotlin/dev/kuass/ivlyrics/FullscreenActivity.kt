@@ -1,13 +1,11 @@
 package dev.kuass.ivlyrics
 
-import android.content.ComponentName
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.RenderEffect
 import android.graphics.Shader
 import android.media.MediaMetadata
 import android.media.session.MediaController
-import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.os.Build
 import android.os.Bundle
@@ -48,7 +46,6 @@ class FullscreenActivity : AppCompatActivity() {
         const val ROW_GAP_DP = 10
         const val VIDEO_SYNC_MS = 2000L
         const val VIDEO_DRIFT_SEC = 1.5
-        const val SPOTIFY = "com.spotify.music"
     }
 
     private lateinit var prefs: Prefs
@@ -59,7 +56,7 @@ class FullscreenActivity : AppCompatActivity() {
     private lateinit var playPause: MaterialButton
     private val main = Handler(Looper.getMainLooper())
     private val io = Executors.newSingleThreadExecutor()
-    private var controller: MediaController? = null
+    private val controller: MediaController? get() = sessions.controller
     private var state: PlaybackState? = null
     private var durationMs = 0L
     private val follow = ScrollFollow()
@@ -79,10 +76,8 @@ class FullscreenActivity : AppCompatActivity() {
     private val clockFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
     private val stateListener: (LyricsState.Snapshot) -> Unit = { snapshot = it; shownIndex = Int.MIN_VALUE; render() }
-    private val sessionsChanged = MediaSessionManager.OnActiveSessionsChangedListener { attach(it) }
-    private val callback = object : MediaController.Callback() {
-        override fun onMetadataChanged(metadata: MediaMetadata?) = showMetadata(metadata)
-        override fun onPlaybackStateChanged(s: PlaybackState?) { state = s; updatePlayPause() }
+    private val sessions: SpotifySessionBinding by lazy {
+        SpotifySessionBinding(this, main, ::onSessionChanged, ::showMetadata, { state = it; updatePlayPause() })
     }
     private val tick = object : Runnable {
         override fun run() { render(); main.postDelayed(this, TICK_MS) }
@@ -159,9 +154,7 @@ class FullscreenActivity : AppCompatActivity() {
             hide(WindowInsetsCompat.Type.systemBars())
         }
         LyricsState.addListener(stateListener)
-        val manager = getSystemService(MediaSessionManager::class.java)
-        val self = ComponentName(this, SpotifyListener::class.java)
-        runCatching { manager.addOnActiveSessionsChangedListener(sessionsChanged, self, main); attach(manager.getActiveSessions(self)) }
+        runCatching { sessions.start() }
         videoActive = true
         video?.onResume()
         main.post(tick)
@@ -181,17 +174,12 @@ class FullscreenActivity : AppCompatActivity() {
         video?.evaluateJavascript("pause()", null)
         video?.onPause()
         LyricsState.removeListener(stateListener)
-        runCatching { getSystemService(MediaSessionManager::class.java).removeOnActiveSessionsChangedListener(sessionsChanged) }
-        controller?.unregisterCallback(callback); controller = null
+        runCatching { sessions.stop(notifyDisconnected = false) }
         prefs.putBoolean(Prefs.UI_OPEN, false)
         super.onPause()
     }
 
-    private fun attach(sessions: List<MediaController>?) {
-        val spotify = sessions?.firstOrNull { it.packageName == SPOTIFY }
-        if (spotify?.sessionToken == controller?.sessionToken) return
-        controller?.unregisterCallback(callback)
-        controller = spotify?.also { it.registerCallback(callback, main) }
+    private fun onSessionChanged(spotify: MediaController?) {
         state = spotify?.playbackState
         showMetadata(spotify?.metadata)
         updatePlayPause()

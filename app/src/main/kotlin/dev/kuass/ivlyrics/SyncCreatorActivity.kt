@@ -1,10 +1,8 @@
 package dev.kuass.ivlyrics
 
-import android.content.ComponentName
 import android.graphics.Typeface
 import android.media.MediaMetadata
 import android.media.session.MediaController
-import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.os.Bundle
 import android.os.Handler
@@ -27,7 +25,7 @@ import com.google.android.material.textfield.TextInputEditText
  * next lyric line. The result is saved as local LRC for this track and used before any online source.
  */
 class SyncCreatorActivity : AppCompatActivity() {
-    private companion object { const val TICK_MS = 200L; const val BACK_MS = 3000L; const val SPOTIFY = "com.spotify.music" }
+    private companion object { const val TICK_MS = 200L; const val BACK_MS = 3000L }
 
     private lateinit var prefs: Prefs
     private lateinit var local: LocalLyrics
@@ -35,17 +33,15 @@ class SyncCreatorActivity : AppCompatActivity() {
     private lateinit var scroll: NestedScrollView
     private lateinit var position: TextView
     private val main = Handler(Looper.getMainLooper())
-    private var controller: MediaController? = null
+    private val controller: MediaController? get() = sessions.controller
     private var state: PlaybackState? = null
     private val draft = SyncDraft()
     private val key get() = draft.key
     private val lines get() = draft.lines
     private val times get() = draft.times
     private val cursor get() = draft.cursor
-    private val sessionsChanged = MediaSessionManager.OnActiveSessionsChangedListener { attach(it) }
-    private val callback = object : MediaController.Callback() {
-        override fun onPlaybackStateChanged(s: PlaybackState?) { state = s; updatePlayPause() }
-        override fun onMetadataChanged(metadata: MediaMetadata?) = adoptTrack(metadata)
+    private val sessions: SpotifySessionBinding by lazy {
+        SpotifySessionBinding(this, main, ::onSessionChanged, ::adoptTrack, { state = it; updatePlayPause() })
     }
     /** Fills the line list as soon as the service has lyrics for the track being edited. */
     private val stateListener: (LyricsState.Snapshot) -> Unit = { snap ->
@@ -125,9 +121,7 @@ class SyncCreatorActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         prefs.putBoolean(Prefs.UI_OPEN, true)
-        val manager = getSystemService(MediaSessionManager::class.java)
-        val self = ComponentName(this, SpotifyListener::class.java)
-        runCatching { manager.addOnActiveSessionsChangedListener(sessionsChanged, self, main); attach(manager.getActiveSessions(self)) }
+        runCatching { sessions.start() }
         LyricsState.addListener(stateListener)
         main.post(tick)
     }
@@ -135,17 +129,12 @@ class SyncCreatorActivity : AppCompatActivity() {
     override fun onPause() {
         LyricsState.removeListener(stateListener)
         main.removeCallbacks(tick)
-        runCatching { getSystemService(MediaSessionManager::class.java).removeOnActiveSessionsChangedListener(sessionsChanged) }
-        controller?.unregisterCallback(callback); controller = null
+        runCatching { sessions.stop(notifyDisconnected = false) }
         prefs.putBoolean(Prefs.UI_OPEN, false)
         super.onPause()
     }
 
-    private fun attach(sessions: List<MediaController>?) {
-        val spotify = sessions?.firstOrNull { it.packageName == SPOTIFY }
-        if (spotify?.sessionToken == controller?.sessionToken) return
-        controller?.unregisterCallback(callback)
-        controller = spotify?.also { it.registerCallback(callback, main) }
+    private fun onSessionChanged(spotify: MediaController?) {
         state = spotify?.playbackState
         updatePlayPause()
         adoptTrack(spotify?.metadata)
