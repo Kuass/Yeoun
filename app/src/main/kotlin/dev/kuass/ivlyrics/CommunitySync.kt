@@ -13,7 +13,16 @@ import kotlin.math.roundToLong
  * The public OpenDB tells which ISRCs have data; the API returns the timing; the LRCLIB record referenced by the
  * data supplies the exact base text so character indexes line up.
  */
-class CommunitySync(ctx: Context) {
+class CommunitySync internal constructor(
+    cacheDir: File,
+    private val get: (String, Int, Map<String, String>, Set<Int>) -> String? = Http::get,
+    private val resolveIsrc: (String, String, Long) -> String? = Isrc::resolve,
+    private val log: (String, Exception?) -> Unit = { message, error ->
+        if (error == null) Log.i(TAG, message) else Log.w(TAG, message, error)
+    },
+) {
+    constructor(ctx: Context) : this(ctx.cacheDir)
+
     companion object {
         private const val TAG = "CommunitySync"
         private const val API = "https://lyrics.api.ivl.is/lyrics/sync-data"
@@ -28,30 +37,26 @@ class CommunitySync(ctx: Context) {
     }
 
 
-    private val dir = File(ctx.cacheDir, "community").apply { mkdirs() }
+    private val dir = File(cacheDir, "community").apply { mkdirs() }
     private var openDb: Map<String, Set<String>>? = null
     private var openDbLoadedAt = 0L
 
     /** Providers whose data is authored against an LRCLIB text we can fetch; most common first. */
     private val PROVIDERS = listOf("lrclib")
-    private val negative = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
 
     /**
      * Karaoke lyrics for the track, or null when the community has nothing usable.
      * The Spotify track id (from the media session) is the primary key; ISRC via Deezer is the fallback.
      */
     fun lookup(trackId: String?, title: String, artist: String, durationSec: Long): Lyrics? = try {
-        val key = trackId ?: "$title|$artist|$durationSec"
-        if (key in negative) return null
-        val result = trackId?.let { byQuery("trackId=$it") } ?: byIsrc(title, artist, durationSec)
-        if (result == null) negative += key
-        result
+        // A miss can include a temporary ISRC/OpenDB failure; retry only when the caller loads again.
+        trackId?.let { byQuery("trackId=$it") } ?: byIsrc(title, artist, durationSec)
     } catch (e: Exception) {
-        Log.w(TAG, "lookup failed for $artist - $title", e); null
+        log("lookup failed for $artist - $title", e); null
     }
 
     private fun byIsrc(title: String, artist: String, durationSec: Long): Lyrics? {
-        val isrc = Isrc.resolve(title, artist, durationSec) ?: return null
+        val isrc = resolveIsrc(title, artist, durationSec) ?: return null
         val providers = providersFor(isrc).filter { it in PROVIDERS }
         if (providers.isEmpty()) return null
         return byQuery("isrc=$isrc", providers)
@@ -62,7 +67,7 @@ class CommunitySync(ctx: Context) {
             val data = fetchSyncData(query, provider) ?: continue
             val base = baseLines(data) ?: continue
             val lines = CommunitySyncCodec.apply(base, data) ?: continue
-            Log.i(TAG, "$query: applied $provider, ${lines.size} lines")
+            log("$query: applied $provider, ${lines.size} lines", null)
             return Lyrics(lines, true, ID)
         }
         return null
@@ -84,15 +89,15 @@ class CommunitySync(ctx: Context) {
                 ?.takeIf { m -> m.values.sumOf { it.size } > 0 }
                 ?.let { openDb = it; openDbLoadedAt = System.currentTimeMillis(); return it }
         }
-        val manifest = Http.get("${OPENDB}data/manifest.json", 10_000)?.let(::JSONObject) ?: return openDb
+        val manifest = get("${OPENDB}data/manifest.json", 10_000, emptyMap(), setOf(404))?.let(::JSONObject) ?: return openDb
         val merged = mutableMapOf<String, MutableSet<String>>()
         val base = manifest.optJSONObject("base")?.optString("url") ?: return openDb
         // The base file wraps the provider map in "items"; deltas carry "add"/"remove" maps at the top level.
-        Http.get("$OPENDB$base", 20_000)?.let(::JSONObject)?.let { mergeProviderMap(merged, it.optJSONObject("items") ?: it.optJSONObject("data") ?: it) } ?: return openDb
+        get("$OPENDB$base", 20_000, emptyMap(), setOf(404))?.let(::JSONObject)?.let { mergeProviderMap(merged, it.optJSONObject("items") ?: it.optJSONObject("data") ?: it) } ?: return openDb
         val deltas = manifest.optJSONArray("deltas") ?: JSONArray()
         for (i in 0 until deltas.length()) {
             val url = deltas.optJSONObject(i)?.optString("url") ?: continue
-            val delta = Http.get("$OPENDB$url", 10_000)?.let(::JSONObject) ?: continue
+            val delta = get("$OPENDB$url", 10_000, emptyMap(), setOf(404))?.let(::JSONObject) ?: continue
             delta.optJSONObject("add")?.let { mergeProviderMap(merged, it) }
             delta.optJSONObject("remove")?.let { rm -> rm.keys().forEach { p -> merged[p]?.removeAll(rm.optJSONArray(p)?.toStringList()?.toSet().orEmpty()) } }
         }
@@ -116,7 +121,7 @@ class CommunitySync(ctx: Context) {
     private fun fetchSyncData(query: String, provider: String): CommunitySyncCodec.SyncData? {
         val url = "$API?$query&request-version=$REQUEST_VERSION&provider=${Http.enc(provider)}"
         // 400 comes back when the server cannot map the track id; 404 when the provider has no data.
-        val body = Http.get(url, 15_000, mapOf("Origin" to ORIGIN), setOf(400, 404)) ?: return null
+        val body = get(url, 15_000, mapOf("Origin" to ORIGIN), setOf(400, 404)) ?: return null
         return CommunitySyncCodec.parse(JSONObject(body))
     }
 
@@ -125,7 +130,7 @@ class CommunitySync(ctx: Context) {
     /** The LRCLIB record the data was authored against, as trimmed NFC non-empty lines. */
     private fun baseLines(data: CommunitySyncCodec.SyncData): List<String>? {
         val id = data.lrclibId ?: return null
-        val rec = Http.get("https://lrclib.net/api/get/$id", 10_000)?.let(::JSONObject) ?: return null
+        val rec = get("https://lrclib.net/api/get/$id", 10_000, emptyMap(), setOf(404))?.let(::JSONObject) ?: return null
         val synced = rec.optString("syncedLyrics").takeIf { it.isNotBlank() }
         val plain = rec.optString("plainLyrics").takeIf { it.isNotBlank() }
         val text = (if (data.preferSynced) synced?.let { Lrc.parse(it).joinToString("\n") { l -> l.text } } else null) ?: plain ?: return null
