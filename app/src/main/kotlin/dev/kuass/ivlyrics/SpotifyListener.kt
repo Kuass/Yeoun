@@ -193,24 +193,17 @@ class SpotifyListener : NotificationListenerService() {
         val opt = prefs.aiOptions.let { base -> currentLang?.let { base.copy(target = Lang.target(it)) } ?: base }
         val texts = lyrics.lines.map { it.text }
         val languages = SourceLanguage.detectLines(texts, currentSourceLanguage)
-        val decisions = languages.map { LanguageDisplay.resolve(it, opt.target.code, languagePrefs.get(it)) }
-        val translate = decisions.map { it.translation && prefs.translate }
-        val phonetic = decisions.map { it.phonetic && prefs.phonetic }
-        val pending = languages.indices.filter { decisions[it].needsChoice }.map { languages[it] }.distinct()
-        overlay?.setLanguagePrompt(pending.firstOrNull())
+        val plan = EnrichmentPlan.create(texts, languages, opt.target.code,
+            languages.distinct().associateWith { languagePrefs.get(it) }, prefs.translate, prefs.phonetic)
+        overlay?.setLanguagePrompt(plan.pendingLanguages.firstOrNull())
         val cacheKey = ExtrasPolicy.key(ticket.key, texts, opt)
-        LyricsState.update { it.copy(sourceLanguages = languages, extrasKey = cacheKey) }
+        LyricsState.update { it.copy(sourceLanguages = plan.languages, extrasKey = cacheKey) }
         ai.execute {
             if (!requests.accepts(ticket)) return@execute
-            val hit = cache.get(cacheKey)
-            val corrections = edits.get(cacheKey)
+            val work = plan.prepare(cache.get(cacheKey), edits.get(cacheKey), cfg != null)
+            val hit = work.cached
             fun publish(result: LyricsCache.Extras, finished: Boolean = false) {
-                val visible = corrections.apply(result, texts.size)
-                val tr = ExtrasPolicy.visible(visible.translation, translate)
-                val ph = ExtrasPolicy.visible(visible.phonetic, phonetic)
-                val progress = ExtrasProgress.Status(
-                    ExtrasProgress.channel(translate, result.translation, corrections.translation.keys, cfg != null, finished, pending.isNotEmpty()),
-                    ExtrasProgress.channel(phonetic, result.phonetic, corrections.phonetic.keys, cfg != null, finished, pending.isNotEmpty()))
+                val (tr, ph, progress) = work.presentation(result, finished)
                 main.post {
                     if (requests.accepts(ticket)) {
                         overlay?.setExtrasProgress(progress)
@@ -220,19 +213,19 @@ class SpotifyListener : NotificationListenerService() {
                     }
                 }
             }
-            publish(hit ?: LyricsCache.Extras(null, null))
+            publish(hit)
             if (cfg == null || !requests.accepts(ticket)) return@execute
-            val translationInput = ExtrasPolicy.missing(texts, translate.mapIndexed { i, on -> on && i !in corrections.translation }, hit?.translation)
+            val translationInput = work.translationInput
             val translated = if (translationInput.any(String::isNotBlank)) Ai.translate(cfg, translationInput, title, artist, opt) else null
-            val translation = ExtrasPolicy.merge(hit?.translation, translated, texts.size)
+            val translation = ExtrasPolicy.merge(hit.translation, translated, texts.size)
             if (!requests.accepts(ticket)) return@execute
             if (translated != null) {
-                cache.put(cacheKey, LyricsCache.Extras(translation, hit?.phonetic))
-                publish(LyricsCache.Extras(translation, hit?.phonetic))
+                cache.put(cacheKey, LyricsCache.Extras(translation, hit.phonetic))
+                publish(LyricsCache.Extras(translation, hit.phonetic))
             }
-            val phoneticInput = ExtrasPolicy.missing(texts, phonetic.mapIndexed { i, on -> on && i !in corrections.phonetic }, hit?.phonetic)
+            val phoneticInput = work.phoneticInput
             val pronounced = if (phoneticInput.any(String::isNotBlank)) Ai.pronounce(cfg, phoneticInput, opt) else null
-            val result = LyricsCache.Extras(translation, ExtrasPolicy.merge(hit?.phonetic, pronounced, texts.size))
+            val result = LyricsCache.Extras(translation, ExtrasPolicy.merge(hit.phonetic, pronounced, texts.size))
             if (!requests.accepts(ticket)) return@execute
             if (translated != null || pronounced != null) cache.put(cacheKey, result)
             publish(result, finished = true)
