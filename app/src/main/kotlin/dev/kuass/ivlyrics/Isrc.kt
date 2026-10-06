@@ -22,10 +22,10 @@ object Isrc {
         private val get: (String, Int) -> String? = { url, timeout -> Http.get(url, timeout) },
         private val onError: (Exception) -> Unit = { Log.w(TAG, "lookup failed: ${it.message}") },
     ) {
-        private val memo = java.util.concurrent.ConcurrentHashMap<String, String>()
+        private val memo = java.util.concurrent.ConcurrentHashMap<Triple<String, String, Long>, String>()
 
         fun resolve(title: String, artist: String, durationSec: Long): String? {
-            val key = "$title|$artist|$durationSec"
+            val key = Triple(title, artist, durationSec)
             memo[key]?.let { return it }
             val isrc = try { lookup(title, artist, durationSec) } catch (e: Exception) { onError(e); null }
             // An outage or miss must remain retryable on the next track load.

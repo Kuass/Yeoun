@@ -25,11 +25,11 @@ object VideoMatch {
         private val get: (String, Int, Set<Int>) -> String? = { url, timeout, nullOn -> Http.get(url, timeout, nullOn = nullOn) },
         private val onError: (String, Exception) -> Unit = { q, e -> Log.w(TAG, "search failed for $q: ${e.message}") },
     ) {
-        private val memo = ConcurrentHashMap<String, String>()
+        private val memo = ConcurrentHashMap<Pair<String, String>, String>()
 
         fun search(apiKey: String, title: String, artist: String): String? {
             if (apiKey.isBlank()) return null
-            val key = "$title|$artist"
+            val key = title to artist
             memo[key]?.let { return it }
             val q = "$artist $title official"
             val found = try {
