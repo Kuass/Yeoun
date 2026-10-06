@@ -220,6 +220,6 @@ object CommunitySyncCodec {
             for (k in syls.indices) syls[k] = syls[k].copy(endMs = syls.getOrNull(k + 1)?.startMs ?: (syls[k].startMs + 400))
             out += LrcLine(lineTime, text, syls)
         }
-        return out.takeIf { it.size >= base.size / 2 }?.sortedBy { it.timeMs }
+        return out.takeIf { it.isNotEmpty() && it.size >= base.size / 2 }?.sortedBy { it.timeMs }
     }
 }
