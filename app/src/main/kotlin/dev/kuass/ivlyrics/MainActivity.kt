@@ -80,6 +80,8 @@ class MainActivity : AppCompatActivity() {
     }
     private var importKey: String? = null
     private var exportFile: String? = null
+    // Preparation belongs to this Activity; exportFile restores a picker already launched before recreation.
+    private var preparingExport = false
     private val importDocument = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         val key = importKey
         importKey = null
@@ -503,7 +505,7 @@ class MainActivity : AppCompatActivity() {
         }
         val export = stored?.takeUnless { it.startsWith(LocalLyrics.PLAIN_HEADER) } ?: lyrics?.let { LrcWriter.write(it.lines.map { line -> line.text }, it.lines.map { line -> line.timeMs }) }
         val actions = mutableListOf(R.string.lrc_import)
-        if (export != null) actions += R.string.lrc_export
+        if (export != null && !preparingExport && exportFile == null) actions += R.string.lrc_export
         if (stored != null) actions += R.string.lrc_remove
         MaterialAlertDialogBuilder(this).setTitle(R.string.local_lyrics)
             .setItems(actions.map { getString(it) }.toTypedArray()) { _, index ->
@@ -516,15 +518,22 @@ class MainActivity : AppCompatActivity() {
                             importDocument.launch(arrayOf("*/*"))
                         }.show()
                     R.string.lrc_export -> {
-                        if (export != null) io.execute {
+                        if (export == null || preparingExport || exportFile != null) return@setItems
+                        preparingExport = true
+                        io.execute {
                             val result = runCatching {
                                 java.io.File.createTempFile("lyrics-export-", ".lrc", cacheDir).also { it.writeText(export, Charsets.UTF_8) }
                             }
                             main.post {
+                                preparingExport = false
                                 if (isDestroyed || isFinishing) { result.getOrNull()?.delete(); return@post }
                                 result.onSuccess { file ->
                                     exportFile = file.name
-                                    exportDocument.launch("lyrics.lrc")
+                                    try { exportDocument.launch("lyrics.lrc") } catch (failure: Exception) {
+                                        exportFile = null
+                                        runCatching { file.delete() }
+                                        throw failure
+                                    }
                                 }.onFailure { documentMessage(R.string.lrc_export_error) }
                             }
                         }
