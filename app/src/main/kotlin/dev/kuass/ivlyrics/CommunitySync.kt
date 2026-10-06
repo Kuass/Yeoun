@@ -5,6 +5,7 @@ import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
+import java.io.IOException
 import java.text.Normalizer
 import kotlin.math.roundToLong
 
@@ -102,7 +103,12 @@ class CommunitySync internal constructor(
             delta.optJSONObject("remove")?.let { rm -> rm.keys().forEach { p -> merged[p]?.removeAll(rm.optJSONArray(p)?.toStringList()?.toSet().orEmpty()) } }
         }
         val json = JSONObject().also { o -> merged.forEach { (p, set) -> o.put(p, JSONArray(set.toList())) } }
-        file.writeText(json.toString())
+        try {
+            file.writeText(json.toString())
+        } catch (e: IOException) {
+            // Disk persistence is optional; keep the successfully downloaded map usable in memory.
+            log("OpenDB cache write failed", e)
+        }
         openDb = merged; openDbLoadedAt = System.currentTimeMillis()
         return merged
     }
