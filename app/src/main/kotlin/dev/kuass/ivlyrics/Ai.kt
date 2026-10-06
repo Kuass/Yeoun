@@ -159,8 +159,11 @@ $examples"""
     /** Splits model output into exactly [expected] lines, tolerating code fences and stray blank lines. */
     fun align(output: String, expected: Int): List<String>? {
         var lines = output.replace("\r\n", "\n").replace('\r', '\n').split("\n")
-        if (lines.firstOrNull()?.trimStart()?.startsWith("```") == true) lines = lines.drop(1)
-        if (lines.lastOrNull()?.trimStart()?.startsWith("```") == true) lines = lines.dropLast(1)
+        // Ignore padding outside wrappers without discarding empty lyric slots inside them.
+        val firstContent = lines.indexOfFirst { it.isNotBlank() }
+        if (lines.getOrNull(firstContent)?.trimStart()?.startsWith("```") == true) lines = lines.drop(firstContent + 1)
+        val lastContent = lines.indexOfLast { it.isNotBlank() }
+        if (lines.getOrNull(lastContent)?.trimStart()?.startsWith("```") == true) lines = lines.take(lastContent)
         if (lines.size != expected) lines = lines.filter { it.isNotBlank() }
         return if (lines.size == expected) lines.map { it.trim() } else null
     }
