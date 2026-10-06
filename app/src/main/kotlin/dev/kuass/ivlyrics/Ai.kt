@@ -7,6 +7,7 @@ import android.util.Log
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
+import java.io.InputStream
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Callable
@@ -190,6 +191,24 @@ $examples"""
         return (0 until data.length()).mapNotNull { data.optJSONObject(it)?.optString("id")?.takeIf { id -> id.isNotBlank() } }.sorted()
     }
 
+    /** Error diagnostics retain only this prefix, so do not accumulate the discarded response body. */
+    internal fun readErrorText(input: InputStream?): String {
+        val reader = input?.reader() ?: return ""
+        try {
+            val prefix = CharArray(300)
+            var size = 0
+            while (size < prefix.size) {
+                val count = reader.read(prefix, size, prefix.size - size)
+                if (count < 0) break
+                size += count
+            }
+            return String(prefix, 0, size)
+        } finally {
+            // Preserve the HTTP diagnostic or primary read failure; complete() also disconnects the connection.
+            try { reader.close() } catch (_: IOException) { }
+        }
+    }
+
     private fun complete(cfg: Config, system: String, user: String): String {
         val body = JSONObject()
             .put("model", cfg.model)
@@ -208,7 +227,7 @@ $examples"""
             conn.outputStream.use { it.write(body.toString().toByteArray()) }
             val code = conn.responseCode
             if (code !in 200..299) {
-                val err = conn.errorStream?.bufferedReader()?.readText()?.take(300) ?: ""
+                val err = readErrorText(conn.errorStream)
                 throw IOException("HTTP $code $err")
             }
             val json = JSONObject(conn.inputStream.bufferedReader().readText())
