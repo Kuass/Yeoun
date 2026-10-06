@@ -147,7 +147,16 @@ class FullscreenActivity : AppCompatActivity() {
                 scheduleHide()
             }
         })
-        seek.addOnChangeListener { _, value, fromUser -> if (fromUser) showTime((value / 1000f * durationMs).toLong()) }
+        seek.addOnChangeListener { _, value, fromUser ->
+            if (fromUser) {
+                val position = (value / 1000f * durationMs).toLong()
+                showTime(position)
+                if (!seeking) {
+                    controller?.transportControls?.seekTo(position)
+                    scheduleHide()
+                }
+            }
+        }
         applyLyricsStyle()
     }
 
