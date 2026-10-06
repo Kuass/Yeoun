@@ -54,8 +54,14 @@ object Lrc {
     }
 
     /** Number of leading characters of the line that have started singing by [posMs]. */
-    fun sungChars(syllables: List<Syl>, posMs: Long): Int =
-        syllables.takeWhile { it.startMs <= posMs }.sumOf { it.text.length }
+    fun sungChars(syllables: List<Syl>, posMs: Long): Int {
+        var count = 0
+        for (syllable in syllables) {
+            if (syllable.startMs > posMs) break
+            count += syllable.text.length
+        }
+        return count
+    }
 
     private fun toMs(m: MatchResult): Long? {
         val min = m.groupValues[1].toLongOrNull() ?: return null
