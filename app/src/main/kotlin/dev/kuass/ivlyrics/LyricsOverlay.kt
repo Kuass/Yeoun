@@ -292,7 +292,10 @@ class LyricsOverlay(context: Context, private val prefs: Prefs, private val onDi
     }
 
     private fun followCurrent() {
-        view.post { view.currentLineCenter()?.let { center -> lyricsScroll.smoothScrollTo(0, (center - lyricsScroll.height / 2).coerceAtLeast(0)) } }
+        view.post {
+            if (follow.paused(SystemClock.elapsedRealtime())) return@post
+            view.currentLineCenter()?.let { center -> lyricsScroll.smoothScrollTo(0, (center - lyricsScroll.height / 2).coerceAtLeast(0)) }
+        }
     }
 
     private fun render(force: Boolean) {

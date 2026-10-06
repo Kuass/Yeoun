@@ -333,9 +333,12 @@ function now(){return (player&&player.getCurrentTime)?player.getCurrentTime():-1
 
     private fun scrollToCurrent() {
         val scroll = findViewById<androidx.core.widget.NestedScrollView>(R.id.fsLyricsScroll)
-        lyricsView.post { lyricsView.currentLineCenter()?.let { center ->
-            scroll.smoothScrollTo(0, (lyricsView.top + center - scroll.height / 2).coerceAtLeast(0))
-        } }
+        lyricsView.post {
+            if (follow.paused(SystemClock.elapsedRealtime())) return@post
+            lyricsView.currentLineCenter()?.let { center ->
+                scroll.smoothScrollTo(0, (lyricsView.top + center - scroll.height / 2).coerceAtLeast(0))
+            }
+        }
     }
 
     private fun render(force: Boolean = false) {
