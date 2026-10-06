@@ -35,6 +35,7 @@ class SyncCreatorActivity : AppCompatActivity() {
     private val main = Handler(Looper.getMainLooper())
     private val controller: MediaController? get() = sessions.controller
     private var state: PlaybackState? = null
+    private var metadataTrackKey: String? = null
     private val draft = SyncDraft()
     private val key get() = draft.key
     private val lines get() = draft.lines
@@ -144,13 +145,18 @@ class SyncCreatorActivity : AppCompatActivity() {
     private fun adoptTrack(md: MediaMetadata?) {
         val title = md?.getString(MediaMetadata.METADATA_KEY_TITLE)
         if (title == null) {
-            // Keep the draft while disconnected, but never stamp using a missing playback session.
+            // Keep the draft, but wait until metadata identifies the session's track before stamping it.
+            metadataTrackKey = null
             findViewById<MaterialButton>(R.id.scStamp).isEnabled = false
             return
         }
         val artist = md.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: ""
         val k = TrackPrefs.key(title, artist, md.getLong(MediaMetadata.METADATA_KEY_DURATION) / 1000)
-        if (k == key) return
+        metadataTrackKey = k
+        if (k == key) {
+            findViewById<MaterialButton>(R.id.scStamp).isEnabled = canStamp()
+            return
+        }
         draft.selectTrack(k)
         setLines(emptyList(), null)
         findViewById<TextInputEditText>(R.id.scPaste).text?.clear()
@@ -189,8 +195,8 @@ class SyncCreatorActivity : AppCompatActivity() {
     }
 
     private fun stamp() {
-        if (state == null || controller == null || cursor >= lines.size) return
-        if (!draft.stamp(positionMs())) {
+        if (!canStamp()) return
+        if (!draft.stamp(positionMs(), metadataTrackKey)) {
             Snackbar.make(list, R.string.sync_order_error, Snackbar.LENGTH_SHORT).show()
         }
         refresh()
@@ -198,8 +204,12 @@ class SyncCreatorActivity : AppCompatActivity() {
 
     private fun undo() { draft.undo(); refresh() }
 
+    private fun canStamp(): Boolean {
+        return state != null && controller != null && draft.canStamp(metadataTrackKey)
+    }
+
     private fun refresh() {
-        findViewById<MaterialButton>(R.id.scStamp).isEnabled = key != null && state != null && cursor < lines.size
+        findViewById<MaterialButton>(R.id.scStamp).isEnabled = canStamp()
         findViewById<MaterialButton>(R.id.scSave).isEnabled = key != null && times.any { it != null }
         for (i in lines.indices) {
             val row = list.getChildAt(i) as TextView
