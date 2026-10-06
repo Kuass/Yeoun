@@ -78,6 +78,7 @@ class FullscreenActivity : AppCompatActivity() {
     private var snapshot = LyricsState.snapshot
     private var video: WebView? = null
     private var videoId: String? = null
+    private var videoRevision = 0L
     private var videoReady = false
     private var videoActive = false
     private var videoKey: Triple<String, String, Long>? = null
@@ -225,7 +226,15 @@ class FullscreenActivity : AppCompatActivity() {
         w.setBackgroundColor(0)
         w.webChromeClient = WebChromeClient()
         w.addJavascriptInterface(object {
-            @JavascriptInterface fun ready() { main.post { if (isDestroyed || video !== w) return@post; videoReady = true; w.visibility = View.VISIBLE; background.visibility = View.INVISIBLE; syncVideo(force = true) } }
+            @JavascriptInterface fun ready(revision: String) {
+                main.post {
+                    if (isDestroyed || video !== w || revision != videoRevision.toString() || videoKey == null || videoId == null) return@post
+                    videoReady = true
+                    w.visibility = View.VISIBLE
+                    background.visibility = View.INVISIBLE
+                    syncVideo(force = true)
+                }
+            }
         }, "Android")
         // A 16:9 player scaled up to cover a portrait screen; cropping the sides is intended.
         val m = resources.displayMetrics
@@ -236,19 +245,30 @@ class FullscreenActivity : AppCompatActivity() {
 
     private fun resolveVideo(md: MediaMetadata?) {
         val w = video ?: return
-        val title = md?.getString(MediaMetadata.METADATA_KEY_TITLE) ?: return
+        val title = md?.getString(MediaMetadata.METADATA_KEY_TITLE) ?: run { retireVideo(); return }
         val artist = md.getString(MediaMetadata.METADATA_KEY_ARTIST) ?: ""
         val key = Triple(title, artist, (md.getLong(MediaMetadata.METADATA_KEY_DURATION)) / 1000)
         if (key == videoKey) return
+        val revision = ++videoRevision
         videoKey = key
         videoReady = false
+        videoId = null
         w.visibility = View.GONE; background.visibility = View.VISIBLE
         val manual = trackPrefs.get(TrackPrefs.key(title, artist, key.third)).videoId
         val apiKey = prefs.ytApiKey
         io.execute {
             val id = manual ?: VideoMatch.search(apiKey, title, artist)
-            main.post { if (videoKey == key) loadVideo(id) }
+            main.post { if (videoKey == key && videoRevision == revision) loadVideo(id) }
         }
+    }
+
+    private fun retireVideo() {
+        videoRevision++
+        videoKey = null
+        videoReady = false
+        videoId = null
+        video?.let { it.visibility = View.GONE; it.loadUrl("about:blank") }
+        background.visibility = View.VISIBLE
     }
 
     private fun loadVideo(id: String?) {
@@ -262,7 +282,7 @@ class FullscreenActivity : AppCompatActivity() {
 var player;
 function onYouTubeIframeAPIReady(){player=new YT.Player('p',{width:'100%',height:'100%',videoId:'$id',
  playerVars:{autoplay:1,controls:0,mute:1,playsinline:1,rel:0,iv_load_policy:3,disablekb:1,fs:0,start:$start,loop:1,playlist:'$id'},
- events:{onReady:function(e){e.target.mute();e.target.playVideo();Android.ready();}}});}
+ events:{onReady:function(e){e.target.mute();e.target.playVideo();Android.ready('$videoRevision');}}});}
 function seek(t){if(player&&player.seekTo){player.seekTo(t,true);}}
 function play(){if(player&&player.playVideo){player.playVideo();}}
 function pause(){if(player&&player.pauseVideo){player.pauseVideo();}}
