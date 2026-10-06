@@ -613,14 +613,24 @@ class MainActivity : AppCompatActivity() {
             Snackbar.make(v, R.string.cache_cleared, Snackbar.LENGTH_SHORT).show()
         }
 
+        fun clearModelChoices() {
+            model.dismissDropDown()
+            model.setAdapter(ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, emptyList()))
+        }
         baseUrl.setText(prefs.baseUrl)
         baseUrl.doAfterTextChanged {
+            val previous = prefs.baseUrl
             val url = it.toString()
             prefs.putString(Prefs.BASE_URL, url)
+            if (prefs.baseUrl != previous) clearModelChoices()
             provider.setText(providerLabel(Providers.nameFor(url)), false)
         }
         apiKey.setText(prefs.apiKey)
-        apiKey.doAfterTextChanged { prefs.putString(Prefs.API_KEY, it.toString()) }
+        apiKey.doAfterTextChanged {
+            val previous = prefs.apiKey
+            prefs.putString(Prefs.API_KEY, it.toString())
+            if (prefs.apiKey != previous) clearModelChoices()
+        }
         model.setText(prefs.model)
         model.doAfterTextChanged { prefs.putString(Prefs.MODEL, it.toString()) }
         model.setOnClickListener { if ((model.adapter?.count ?: 0) > 0) model.showDropDown() }
@@ -636,6 +646,8 @@ class MainActivity : AppCompatActivity() {
                     if (isDestroyed || isFinishing) return@runOnUiThread
                     btn.isEnabled = true
                     btn.setText(R.string.load_models)
+                    val current = Ai.Config(prefs.baseUrl, prefs.apiKey, prefs.model)
+                    if (!cfg.sameModelSource(current)) return@runOnUiThread
                     result.onSuccess { ids ->
                         model.setAdapter(ArrayAdapter(this, android.R.layout.simple_list_item_1, ids))
                         Snackbar.make(model, getString(R.string.models_loaded, ids.size), Snackbar.LENGTH_SHORT).show()
