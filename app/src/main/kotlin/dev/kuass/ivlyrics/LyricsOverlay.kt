@@ -62,6 +62,7 @@ class LyricsOverlay(context: Context, private val prefs: Prefs, private val onDi
     }
     private val offsetLabel = TextView(ctx).apply { textSize = 12f; gravity = Gravity.CENTER; setTextColor(ctx.getColor(R.color.paper)) }
     private val quick = LinearLayout(ctx).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+    private val quickToggleRefreshers = mutableListOf<() -> Unit>()
     private val footer = LinearLayout(ctx).apply {
         orientation = LinearLayout.VERTICAL
         addView(resumeFollow)
@@ -72,6 +73,11 @@ class LyricsOverlay(context: Context, private val prefs: Prefs, private val onDi
         val toggles = LinearLayout(ctx)
         fun toggle(label: Int, key: String, read: () -> Boolean) {
             toggles.addView(MaterialButton(ctx).apply {
+                quickToggleRefreshers += {
+                    val enabled = read()
+                    isSelected = enabled
+                    alpha = if (enabled) 1f else 0.5f
+                }
                 setText(label); textSize = 11f; isAllCaps = false
                 alpha = if (read()) 1f else 0.5f
                 setOnClickListener { prefs.putBoolean(key, !read()); isSelected = read(); alpha = if (read()) 1f else 0.5f; scheduleControlsHide() }
@@ -168,6 +174,7 @@ class LyricsOverlay(context: Context, private val prefs: Prefs, private val onDi
     }
 
     private fun toggleQuick() {
+        if (quick.visibility != View.VISIBLE) quickToggleRefreshers.forEach { it() }
         revealControls()
         quick.visibility = if (quick.visibility == View.VISIBLE) View.GONE else View.VISIBLE
         scheduleControlsHide()
