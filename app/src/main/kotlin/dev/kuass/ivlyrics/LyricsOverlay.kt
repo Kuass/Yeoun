@@ -48,6 +48,7 @@ class LyricsOverlay(context: Context, private val prefs: Prefs, private val onDi
         setOnClickListener { follow.resume(); visibility = View.GONE; shownIndex = Int.MIN_VALUE; render(force = true) }
     }
     private var currentTrackKey: String? = null
+    private var exitAnimationPending = false
     private val retry = MaterialButton(ctx).apply {
         setText(R.string.extras_retry); visibility = View.GONE
         setOnClickListener { prefs.putString(Prefs.EXTRAS_VERSION, java.util.UUID.randomUUID().toString()) }
@@ -172,7 +173,15 @@ class LyricsOverlay(context: Context, private val prefs: Prefs, private val onDi
         scheduleControlsHide()
     }
 
-    fun setTrackKey(key: String) { currentTrackKey = key }
+    fun setTrackKey(key: String) {
+        if (currentTrackKey != key && exitAnimationPending) {
+            exitAnimationPending = false
+            view.animate().cancel()
+            view.alpha = 1f
+            view.translationX = 0f
+        }
+        currentTrackKey = key
+    }
     fun setExtrasProgress(status: ExtrasProgress.Status) {
         retry.visibility = if (status.canRetry) View.VISIBLE else View.GONE
     }
@@ -368,10 +377,11 @@ class LyricsOverlay(context: Context, private val prefs: Prefs, private val onDi
                             val fling = e.actionMasked == MotionEvent.ACTION_UP &&
                                 abs(velocityX) > DISMISS_VELOCITY_DP_S * dp && velocityX * dx > 0
                             val far = abs(dx) > view.width * DISMISS_FRACTION
-                            if (fling || far) {
+                            if (e.actionMasked == MotionEvent.ACTION_UP && (fling || far)) {
                                 onDismissed() // decided now, so a track change during the exit animation cannot be blamed
                                 dismiss(dx)
                             } else {
+                                exitAnimationPending = false
                                 view.animate().translationX(0f).alpha(1f).setDuration(DISMISS_ANIM_MS).start()
                             }
                         }
@@ -385,7 +395,11 @@ class LyricsOverlay(context: Context, private val prefs: Prefs, private val onDi
 
         private fun dismiss(dx: Float) {
             val target = if (dx > 0) view.width.toFloat() else -view.width.toFloat()
-            view.animate().translationX(target).alpha(0f).setDuration(DISMISS_ANIM_MS).withEndAction { hide() }.start()
+            exitAnimationPending = true
+            view.animate().translationX(target).alpha(0f).setDuration(DISMISS_ANIM_MS).withEndAction {
+                exitAnimationPending = false
+                hide()
+            }.start()
         }
     }
 }
