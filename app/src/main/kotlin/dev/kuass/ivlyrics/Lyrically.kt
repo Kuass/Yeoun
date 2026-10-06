@@ -26,33 +26,42 @@ object Lyrically {
         }
         val match = choose(candidates, title, artist, durationSec * 1000) ?: return Lyrics.NONE
         val doc = Http.get("$LYRICS?id=${match.id}&v=2", 12000)?.let(::JSONObject) ?: return Lyrics.NONE
-        val timed = parseTimedLines(doc)
-        val plain = doc.optString("plain").takeIf { it.isNotBlank() }
-        when {
-            timed.isNotEmpty() -> Lyrics(timed, true, ID)
-            plain != null -> Lyrics(LrcLib.spread(plain, durationSec), false, ID)
-            else -> Lyrics.NONE
-        }
+        parse(doc, durationSec)
     } catch (e: Exception) {
         Log.w(TAG, "lyrics fetch failed for $artist - $title", e)
         Lyrics.NONE
     }
 
+    internal fun parse(doc: JSONObject, durationSec: Long): Lyrics {
+        val timed = parseTimedLines(doc)
+        val plain = doc.optString("plain").takeIf { !doc.isNull("plain") && it.isNotBlank() }
+        return when {
+            timed.isNotEmpty() -> Lyrics(timed, true, ID)
+            plain != null -> Lyrics(LrcLib.spread(plain, durationSec), false, ID)
+            else -> Lyrics.NONE
+        }
+    }
+
     /** Lines from the `lyrics` array with word/syllable timings; falls back to the `lrc` document when tokens are missing. */
     fun parseTimedLines(doc: JSONObject): List<LrcLine> {
         val arr = doc.optJSONArray("lyrics")
+        val timingCandidates = mutableListOf<Long>()
         val lines = (0 until (arr?.length() ?: 0)).mapNotNull { arr!!.optJSONObject(it) }.mapNotNull { line ->
             val start = line.optLong("timestamp", -1)
             if (start < 0) return@mapNotNull null
             val tokens = line.optJSONArray("text")
-            val syls = (0 until (tokens?.length() ?: 0)).mapNotNull { tokens!!.optJSONObject(it) }.map {
+            val rawTokens = (0 until (tokens?.length() ?: 0)).mapNotNull { tokens!!.optJSONObject(it) }
+            // Preserve timing eligibility before removing null text: cleanup must not turn a multi-line
+            // zero-timestamp document into a supposedly synchronized singleton that hides its fallback.
+            if (rawTokens.any { (it.has("text") && it.isNull("text")) || it.optString("text").isNotBlank() }) timingCandidates += start
+            val syls = rawTokens.filterNot { it.isNull("text") }.map {
                 Token(it.optString("text"), it.optLong("timestamp", start), it.optLong("endtime", start), it.optBoolean("part"))
             }
             Lrc.lineFromSyllables(start, joinTokens(syls))
         }.sortedBy { it.timeMs }
         // Unsynced documents (syncType null) still carry a `lyrics` array, with every timestamp at 0; treating that
         // as timing pins the overlay to the last line for the whole track. Only distinct times are real timing.
-        if (lines.isNotEmpty() && lines.distinctBy { it.timeMs }.size >= minOf(lines.size, 2)) return lines
+        if (lines.isNotEmpty() && timingCandidates.distinct().size >= minOf(timingCandidates.size, 2)) return lines
         return doc.optString("lrc").takeIf { it.isNotBlank() }?.let(Lrc::parse) ?: emptyList()
     }
 

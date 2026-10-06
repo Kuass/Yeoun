@@ -131,8 +131,8 @@ class CommunitySync internal constructor(
     private fun baseLines(data: CommunitySyncCodec.SyncData): List<String>? {
         val id = data.lrclibId ?: return null
         val rec = get("https://lrclib.net/api/get/$id", 10_000, emptyMap(), setOf(404))?.let(::JSONObject) ?: return null
-        val synced = rec.optString("syncedLyrics").takeIf { it.isNotBlank() }
-        val plain = rec.optString("plainLyrics").takeIf { it.isNotBlank() }
+        val synced = rec.optString("syncedLyrics").takeIf { !rec.isNull("syncedLyrics") && it.isNotBlank() }
+        val plain = rec.optString("plainLyrics").takeIf { !rec.isNull("plainLyrics") && it.isNotBlank() }
         val text = (if (data.preferSynced) synced?.let { Lrc.parse(it).joinToString("\n") { l -> l.text } } else null) ?: plain ?: return null
         return text.lines().map { nfc(it).trim() }.filter { it.isNotEmpty() }
     }
