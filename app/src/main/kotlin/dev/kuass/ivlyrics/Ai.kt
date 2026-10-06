@@ -25,7 +25,10 @@ object Ai {
 
     private val pool = Executors.newFixedThreadPool(PARALLEL_REQUESTS)
 
-    data class Config(val baseUrl: String, val apiKey: String, val model: String)
+    data class Config(val baseUrl: String, val apiKey: String, val model: String) {
+        /** GET /models belongs to an endpoint and credential; the selected model is not part of that request. */
+        internal fun sameModelSource(other: Config): Boolean = baseUrl == other.baseUrl && apiKey == other.apiKey
+    }
 
     data class Options(
         val target: Lang.Target,
