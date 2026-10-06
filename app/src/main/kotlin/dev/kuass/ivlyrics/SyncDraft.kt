@@ -28,8 +28,10 @@ internal class SyncDraft {
 
     fun select(index: Int) { cursor = index.coerceIn(0, lines.size) }
 
-    fun stamp(ms: Long): Boolean {
-        if (key == null || cursor >= lines.size || ms < 0 || times.take(cursor).any { it != null && it > ms }) return false
+    fun canStamp(track: String?): Boolean = key != null && key == track && cursor < lines.size
+
+    fun stamp(ms: Long, track: String?): Boolean {
+        if (!canStamp(track) || ms < 0 || times.take(cursor).any { it != null && it > ms }) return false
         history.addLast(times to cursor)
         times = times.mapIndexed { index, time ->
             when {
