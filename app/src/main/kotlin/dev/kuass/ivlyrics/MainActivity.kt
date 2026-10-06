@@ -553,10 +553,23 @@ class MainActivity : AppCompatActivity() {
     // ---- lyrics sources ----------------------------------------------------------------------
 
     private fun bindLyrics() {
-        findViewById<View>(R.id.btnRecentSongs).setOnClickListener { io.execute {
-            val songs = SongArchive(this).recent()
-            main.post { if (!isDestroyed && !isFinishing) RecentSongsUi.show(this, songs) }
-        } }
+        findViewById<View>(R.id.btnRecentSongs).setOnClickListener { button ->
+            if (!button.isEnabled) return@setOnClickListener
+            button.isEnabled = false
+            io.execute {
+                val songs = try {
+                    SongArchive(this).recent()
+                } catch (failure: Throwable) {
+                    main.post { if (!isDestroyed && !isFinishing) button.isEnabled = true }
+                    throw failure
+                }
+                main.post {
+                    if (isDestroyed || isFinishing) return@post
+                    button.isEnabled = true
+                    RecentSongsUi.show(this, songs)
+                }
+            }
+        }
         dropdown(R.id.srcFirst, listOf(
             LrcLib.ID to getString(R.string.source_lrclib),
             Lyrically.ID to getString(R.string.source_lyrically),
