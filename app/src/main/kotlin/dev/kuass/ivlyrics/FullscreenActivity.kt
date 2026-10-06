@@ -64,7 +64,17 @@ class FullscreenActivity : AppCompatActivity() {
     private var seeking = false
     private var shownIndex = Int.MIN_VALUE
     private var shownKey: Triple<String, String, Long>? = null
-    private var artUri: String? = null
+    private val artwork by lazy {
+        ArtworkLoader<Bitmap>(
+            execute = { io.execute(it) },
+            post = { main.post(it) },
+            load = { uri -> URL(uri).openStream().use(BitmapFactory::decodeStream) },
+            show = { bitmap ->
+                if (bitmap != null) showArt(bitmap)
+                else { background.setImageDrawable(null); art.setImageDrawable(null) }
+            },
+        )
+    }
     private var snapshot = LyricsState.snapshot
     private var video: WebView? = null
     private var videoId: String? = null
@@ -163,6 +173,7 @@ class FullscreenActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        artwork.close()
         video?.destroy(); video = null
         io.shutdownNow()
         super.onDestroy()
@@ -192,11 +203,7 @@ class FullscreenActivity : AppCompatActivity() {
         resolveVideo(md)
         val bitmap = md?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
         val uri = md?.getString("com.spotify.music.extra.ART_HTTPS_URI") ?: md?.getString(MediaMetadata.METADATA_KEY_ALBUM_ART_URI)
-        when {
-            bitmap != null -> showArt(bitmap)
-            uri != null && uri != artUri -> { artUri = uri; io.execute { runCatching { URL(uri).openStream().use(BitmapFactory::decodeStream) }.getOrNull()?.let { main.post { if (artUri == uri) showArt(it) } } } }
-            uri == null -> { background.setImageDrawable(null); art.setImageDrawable(null) }
-        }
+        artwork.update(bitmap, uri)
     }
 
     private fun showArt(bitmap: Bitmap) {
