@@ -338,6 +338,7 @@ function now(){return (player&&player.getCurrentTime)?player.getCurrentTime():-1
         findViewById<TextView>(R.id.fsClock).text = clockFormat.format(Date())
         val pos = positionMs()
         if (!seeking && durationMs > 0) { seek.value = (pos.coerceIn(0, durationMs) * 1000f / durationMs).coerceIn(0f, 1000f); showTime(pos) }
+        if (shownKey != snapshot.key) { follow.resume(); followButton.visibility = View.GONE }
         val lyrics = snapshot.lyrics
         if (lyrics == null || lyrics.isEmpty) {
             if (force || shownKey != snapshot.key || shownIndex != Int.MIN_VALUE) {
@@ -347,7 +348,6 @@ function now(){return (player&&player.getCurrentTime)?player.getCurrentTime():-1
             }
             return
         }
-        if (shownKey != snapshot.key) { follow.resume(); followButton.visibility = View.GONE }
         if (follow.paused(SystemClock.elapsedRealtime())) { lyricsView.setPosition(pos); return }
         val i = Lrc.indexAt(lyrics.lines, pos)
         if (i != shownIndex || shownKey != snapshot.key) {
