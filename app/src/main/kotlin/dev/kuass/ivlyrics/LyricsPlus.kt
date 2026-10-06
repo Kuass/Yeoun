@@ -37,6 +37,7 @@ object LyricsPlus {
                 val syllables = mutableListOf<Syl>()
                 for (i in 0 until sa.length()) {
                     val s = sa.optJSONObject(i) ?: return@let null
+                    if (s.has("text") && s.isNull("text")) return@let null
                     val text = s.optString("text")
                     if (text.isEmpty()) continue
                     // Partial karaoke metadata must never replace a complete line with only some of its words.
@@ -48,7 +49,7 @@ object LyricsPlus {
             }?.takeIf { it.isNotEmpty() }
             // Syllables define the text when present so highlight offsets stay exact; otherwise the plain line text.
             val fromSyl = syl?.let { Lrc.lineFromSyllables(time ?: 0L, it) }
-            val text = fromSyl?.text ?: o.optString("text").trim()
+            val text = fromSyl?.text ?: o.optString("text").takeUnless { o.isNull("text") }.orEmpty().trim()
             if (text.isEmpty()) null else Triple(time, text, fromSyl?.syllables)
         }
         if (items.isEmpty()) return Lyrics.NONE
