@@ -75,7 +75,7 @@ class FullscreenActivity : AppCompatActivity() {
     private val trackPrefs by lazy { TrackPrefs(this) }
     private val clockFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
 
-    private val stateListener: (LyricsState.Snapshot) -> Unit = { snapshot = it; shownIndex = Int.MIN_VALUE; render() }
+    private val stateListener: (LyricsState.Snapshot) -> Unit = { snapshot = it; shownIndex = Int.MIN_VALUE; render(force = true) }
     private val sessions: SpotifySessionBinding by lazy {
         SpotifySessionBinding(this, main, ::onSessionChanged, ::showMetadata, { state = it; updatePlayPause() })
     }
@@ -331,7 +331,7 @@ function now(){return (player&&player.getCurrentTime)?player.getCurrentTime():-1
         } }
     }
 
-    private fun render() {
+    private fun render(force: Boolean = false) {
         if (::followButton.isInitialized && followButton.visibility == View.VISIBLE && !follow.paused(SystemClock.elapsedRealtime())) {
             followButton.visibility = View.GONE; shownIndex = Int.MIN_VALUE
         }
@@ -340,7 +340,7 @@ function now(){return (player&&player.getCurrentTime)?player.getCurrentTime():-1
         if (!seeking && durationMs > 0) { seek.value = (pos.coerceIn(0, durationMs) * 1000f / durationMs).coerceIn(0f, 1000f); showTime(pos) }
         val lyrics = snapshot.lyrics
         if (lyrics == null || lyrics.isEmpty) {
-            if (shownKey != snapshot.key || shownIndex != Int.MIN_VALUE) {
+            if (force || shownKey != snapshot.key || shownIndex != Int.MIN_VALUE) {
                 shownKey = snapshot.key; shownIndex = Int.MIN_VALUE
                 lyricsView.showStatus(snapshot.title.ifEmpty { getString(R.string.now_playing_none) },
                     if (lyrics == null) getString(R.string.lyrics_loading) else getString(R.string.lyrics_none))
